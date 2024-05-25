@@ -15,3 +15,33 @@ pub enum Action {
     RightMove,
     LeftShoot,
 }
+
+const PLAYER_INPUT_KEY_COUNT: usize = 4;
+const PLAYER_INPUT_MAP_1: [(Action, InputKind); PLAYER_INPUT_KEY_COUNT]  = [
+    (Action::Jump, InputKind::PhysicalKey(KeyCode::Space)),
+    (Action::LeftMove, InputKind::PhysicalKey(KeyCode::KeyA)),
+    (Action::RightMove, InputKind::PhysicalKey(KeyCode::KeyD)),
+    (Action::LeftShoot, InputKind::Mouse(MouseButton::Left)),
+];
+
+pub struct PlayerInputMap {
+    map: Vec<(Action, InputKind)>,
+}
+
+impl Default for PlayerInputMap {
+    fn default() -> Self {
+        let map = Vec::from(PLAYER_INPUT_MAP_1);
+        Self {
+            map
+        }
+    }
+}
+
+impl IntoIterator for PlayerInputMap {
+    type Item = (Action, InputKind);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.into_iter()
+    }
+}

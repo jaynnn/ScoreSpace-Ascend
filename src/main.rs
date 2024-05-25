@@ -12,7 +12,7 @@ fn main() {
 }
 
 fn setup(
-    commands: &mut Commands
+    mut cmds: Commands
 ) {
-    commands.spawn(Camera2dBundle::default());
+    cmds.spawn(Camera2dBundle::default());
 }
