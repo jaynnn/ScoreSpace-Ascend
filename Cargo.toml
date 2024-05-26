@@ -8,6 +8,10 @@ edition = "2021"
 [dependencies]
 bevy = "0.13.2"
 bevy-inspector-egui = "0.24.0"
-bevy_ecs_ldtk = "0.9.0"
+bevy_ecs_ldtk = { git = "https://github.com/Trouv/bevy_ecs_ldtk.git" } 
 bevy_rapier2d = "0.26.0"
 leafwing-input-manager = "0.13.3"
+
+[patch.crates-io]
+# Patch unstable version to resolve conflicting dependencies from bevy_ecs_ldtk
+bevy_ecs_tilemap = { git = "https://github.com/StarArawn/bevy_ecs_tilemap" }
