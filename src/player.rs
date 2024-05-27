@@ -1,17 +1,58 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use bevy_rapier2d::prelude::*;
+use bevy_inspector_egui::prelude::*;
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
 use crate::input;
 use crate::bullet;
+use crate::global;
 
 #[derive(Component)]
-pub struct Player;
+pub struct Player {
+    isJumping: bool,
+}
+
+impl Player {
+    pub fn new() -> Self {
+        Self {
+            isJumping: false,
+        }
+    }
+    pub fn jump(&mut self) {
+        self.isJumping = true;
+    }
+
+    pub fn isJumping(&self) -> bool {
+        self.isJumping
+    }
+
+    pub fn setJumping(&mut self, jumping: bool) {
+        println!("setJumping {}", jumping);
+        self.isJumping = jumping;
+    }
+}
+
 #[derive(Component)]
 pub struct AtkCoolDownTimer(Timer);
 
+#[derive(Reflect, Resource, Default, InspectorOptions)]
+#[reflect(Resource, InspectorOptions)]
+pub struct PlayerData {
+    pub jump_init_velocity: f32,
+    pub move_speed: f32,
+    pub sprite_size: Vec2,
+}
+
 pub fn player_plugin(app: &mut App) {
     app
+    .insert_resource(PlayerData { 
+        jump_init_velocity: 1000.,
+        move_speed: 200.,
+        sprite_size: Vec2::splat(20.),
+    })
+    .register_type::<PlayerData>()
+    .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
     .add_systems(Startup, (
         spawn_player,
     ))
@@ -24,11 +65,11 @@ pub fn player_plugin(app: &mut App) {
 
 fn spawn_player(
     mut cmds: Commands,
-
+    player_data: Res<PlayerData>
 ) {
     let input_map = InputMap::new(input::PlayerInputMap::default());
     
-    let sprite_size = Vec2::splat(16.);
+    let sprite_size = player_data.sprite_size;
     cmds.spawn((
         Name::new("Player"),
         SpriteBundle {
@@ -39,40 +80,49 @@ fn spawn_player(
             },
             ..default()
         },
-        Player,
+        Player::new(),
         InputManagerBundle::with_map(input_map),
         RigidBody::Dynamic,
         Velocity::zero(),
+        LockedAxes::ROTATION_LOCKED_Z,
         Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
     ));
 }
 
 fn player_jump(
-    mut query: Query<(&mut Velocity, &ActionState<input::Action>), With<Player>>,
+    mut query: Query<(&mut Velocity, &ActionState<input::Action>, &mut Player)>,
+    player_data: Res<PlayerData>,
+    time: Res<Time>,
+    global_data: Res<global::GlobalData>,
 ) {
-    for (mut velocity, action_state) in query.iter_mut() {
+    for (mut velocity, action_state, mut player) in query.iter_mut() {
         if action_state.just_pressed(&input::Action::Jump) {
-            velocity.linvel = Vec2::new(0., 1.) * 100.;
+            if !player.isJumping() {
+                println!("jump {}", player.isJumping());
+                player.setJumping(true);
+                velocity.linvel = Vec2::new(0., 1.) * player_data.jump_init_velocity;
+            }
+        }
+        if player.isJumping() {
+            if velocity.linvel.y <= 0. {
+                player.setJumping(false);
+            } else {
+                let gravity = global_data.gravity;
+                velocity.linvel += gravity * time.delta_seconds();
+            }
         }
     }
 }
 
 fn player_move(
     mut query: Query<(&mut Velocity, &ActionState<input::Action>), With<Player>>,
+    player_data: Res<PlayerData>
 ) {
     for (mut velocity, action_state) in query.iter_mut() {
-        let mut x = 0.;
         let action_press = action_state.get_pressed();
-        if action_state.pressed(&input::Action::LeftMove) {
-            x -= 1.;
-        }
-        if action_state.pressed(&input::Action::RightMove) {
-            x += 1.;
-        }
         let mut move_delta = Vec2::ZERO;
         if action_press.len() > 0 {
             let mut x_axis = 0.;
-            let mut y_axis = 0.;
             for action in action_press.iter() {
                 match action {
                     input::Action::LeftMove => {
@@ -84,12 +134,12 @@ fn player_move(
                     _ => {},
                 }
             }
-            if x_axis != 0. && y_axis != 0. {
-                move_delta = Vec2::new(x_axis, y_axis).normalize();
+            if x_axis != 0. {
+                move_delta = Vec2::new(x_axis, 0.).normalize();
                 println!("player_move {:?}", move_delta);
             }
         }
-        velocity.linvel = move_delta * 100.;
+        velocity.linvel.x = move_delta.x * player_data.move_speed;
     }
 }
 

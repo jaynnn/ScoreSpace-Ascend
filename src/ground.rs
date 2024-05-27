@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
-fn ground_plugin(app: &mut App) {
+pub fn ground_plugin(app: &mut App) {
     app
     .add_systems(Startup, (
         spawn_ground,
@@ -11,16 +11,17 @@ fn ground_plugin(app: &mut App) {
 fn spawn_ground(
     mut cmds: Commands,
 ) {
+    let sprite_size = Vec2::new(1000., 100.);
     cmds.spawn((
         SpriteBundle {
             sprite: Sprite {
                 color: Color::BLACK,
-                custom_size: Some(Vec2::new(1000., 10.)),
+                custom_size: Some(sprite_size),
                 ..default()
             },
-            transform: Transform::from_xyz(0., -100., 0.),
+            transform: Transform::from_xyz(0., -300., 0.),
             ..default()
         },
-        RigidBody::Fixed,
+        Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
     ));
 }
