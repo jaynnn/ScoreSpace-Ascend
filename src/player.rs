@@ -7,6 +7,9 @@ use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use crate::input;
 use crate::bullet;
 use crate::global;
+use crate::wall;
+use crate::ground;
+use crate::fort;
 
 #[derive(Component)]
 pub struct Player {
@@ -60,6 +63,9 @@ pub fn player_plugin(app: &mut App) {
         player_jump,
         player_move,
         player_shoot,
+        collide_wall,
+        collide_ground,
+        collide_jump_bullet,
     ));
 }
 
@@ -86,6 +92,7 @@ fn spawn_player(
         Velocity::zero(),
         LockedAxes::ROTATION_LOCKED_Z,
         Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
+        ActiveEvents::COLLISION_EVENTS,
     ));
 }
 
@@ -104,7 +111,7 @@ fn player_jump(
             }
         }
         if player.isJumping() {
-            if velocity.linvel.y <= 0. {
+            if velocity.linvel.y == 0. {
                 player.setJumping(false);
             } else {
                 let gravity = global_data.gravity;
@@ -136,7 +143,6 @@ fn player_move(
             }
             if x_axis != 0. {
                 move_delta = Vec2::new(x_axis, 0.).normalize();
-                println!("player_move {:?}", move_delta);
             }
         }
         velocity.linvel.x = move_delta.x * player_data.move_speed;
@@ -185,4 +191,82 @@ fn get_mouse_direction(
     let player_position = transform.translation.xy();
     let direction = cursor_position - player_position;
     direction.normalize()
+}
+
+fn collide_wall(
+    mut collision_events: EventReader<CollisionEvent>,
+    query_player: Query<Entity, With<Player>>,
+    query_wall: Query<Entity, With<wall::Wall>>,
+    mut player: Query<&mut Player>,
+) {
+    for event in collision_events.read() {
+        match event {
+            CollisionEvent::Started(es, ed, _f) => {
+                if query_player.contains(*es) || query_player.contains(*ed) {
+                    if query_wall.contains(*es) || query_wall.contains(*ed) {
+                        let mut player = player.single_mut();
+                        player.setJumping(false);
+                    }
+                
+                }
+            }
+            CollisionEvent::Stopped(es, ed, f) => {
+
+            }
+        }
+
+    }
+}
+
+fn collide_ground(
+    mut collision_events: EventReader<CollisionEvent>,
+    query_player: Query<Entity, With<Player>>,
+    query_ground: Query<Entity, With<ground::Ground>>,
+    mut player: Query<&mut Player>,
+) {
+    for event in collision_events.read() {
+        match event {
+            CollisionEvent::Started(es, ed, _f) => {
+                if query_player.contains(*es) || query_player.contains(*ed) {
+                    if query_ground.contains(*es) || query_ground.contains(*ed) {
+                        let mut player = player.single_mut();
+                        player.setJumping(false);
+                    }
+                
+                }
+            }
+            CollisionEvent::Stopped(es, ed, f) => {
+
+            }
+        }
+
+    }
+}
+
+fn collide_jump_bullet(
+    mut query: Query<&mut Player>,
+    mut collision_events: EventReader<CollisionEvent>,
+    query_player: Query<Entity, With<Player>>,
+    query_jump_bullet: Query<Entity, With<fort::JumpBullet>>,
+) {
+    let mut player = query.single_mut();
+    for event in collision_events.read() {
+        match event {
+            CollisionEvent::Started(es, ed, _f) => {
+                if query_player.contains(*es) || query_player.contains(*ed) {
+                    if query_jump_bullet.contains(*es) || query_jump_bullet.contains(*ed) {
+                        player.setJumping(false);
+                    }
+                }
+            }
+            CollisionEvent::Stopped(es, ed, f) => {
+                if query_player.contains(*es) || query_player.contains(*ed) {
+                    if query_jump_bullet.contains(*es) || query_jump_bullet.contains(*ed) {
+                        player.setJumping(true);
+
+                    }
+                }
+            }
+        }
+    }
 }

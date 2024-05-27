@@ -9,6 +9,7 @@ mod bullet;
 mod ground;
 mod wall;
 mod global;
+mod fort;
 
 fn main() {
     let mut app = App::new();
@@ -31,6 +32,7 @@ fn main() {
         ground::ground_plugin,
         wall::wall_plugin,
         global::global_plugin,
+        fort::fort_plugin,
 
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(global::RAPIER_LENGTH_UNIT),
     ))

@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+#[derive(Component)]
+pub struct Wall;
+
 pub fn wall_plugin(app: &mut App) {
     app
     .add_systems(Startup, (
@@ -24,6 +27,7 @@ fn spawn_wall(
         },
         RigidBody::Fixed,
         Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
+        Wall,
     ));
 
     
@@ -40,5 +44,6 @@ fn spawn_wall(
         },
         RigidBody::Fixed,
         Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
+        Wall,
     ));
 }

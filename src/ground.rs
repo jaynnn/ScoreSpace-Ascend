@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+#[derive(Component)]
+pub struct Ground;
+
 pub fn ground_plugin(app: &mut App) {
     app
     .add_systems(Startup, (
@@ -23,5 +26,6 @@ fn spawn_ground(
             ..default()
         },
         Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
+        Ground,
     ));
 }
