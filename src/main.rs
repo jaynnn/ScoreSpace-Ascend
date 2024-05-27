@@ -1,15 +1,16 @@
-use bevy::{prelude::*, window::WindowResolution};
+use bevy::{asset, prelude::*, window::WindowResolution};
 use bevy_rapier2d::prelude::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_rapier2d::prelude::*;
+use bevy_ecs_ldtk::prelude::*;
 
-
-mod input;
-mod player;
 mod bullet;
 mod ground;
 mod wall;
 mod global;
 mod fort;
+mod input;
+mod player;
 
 fn main() {
     let mut app = App::new();
@@ -25,6 +26,9 @@ fn main() {
         }),
         ..default()
     }))
+    .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+    .add_plugins(LdtkPlugin)
+    .insert_resource(LevelSelection::index(0))
     .add_plugins((
         input::input_plugin,
         player::player_plugin,
@@ -54,7 +58,12 @@ fn setup(
     mut cmds: Commands,
     mut rapier_config: ResMut<RapierConfiguration>,
     global_data: ResMut<global::GlobalData>,
+    asset_server: Res<AssetServer>,
 ) {
     cmds.spawn(Camera2dBundle::default());
     rapier_config.gravity = global_data.gravity;
+    cmds.spawn(LdtkWorldBundle {
+        ldtk_handle: asset_server.load("ldtk/main_map.ldtk"),
+        ..Default::default()
+    });
 }
