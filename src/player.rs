@@ -5,7 +5,6 @@ use bevy_inspector_egui::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_ecs_ldtk::prelude::*;
 use bevy::utils::HashSet;
-
 use crate::input;
 use crate::global;
 use crate::wall;
@@ -24,16 +23,13 @@ pub fn player_plugin(app: &mut App) {
     })
     .register_type::<PlayerData>()
     .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
-    .add_systems(Startup, (
-        spawn_player,
-    ))
     .add_systems(Update, (
         player_move,
-        player_shoot,
         detect_climb_range,
         ignore_gravity_if_climbing,
     ));
 }
+
 
 #[derive(Component, Clone, Default)]
 pub struct Player;
@@ -81,31 +77,6 @@ pub struct PlayerData {
     pub jump_init_velocity: f32,
     pub move_speed: f32,
     pub sprite_size: Vec2,
-}
-
-pub fn player_plugin(app: &mut App) {
-    app
-    .insert_resource(PlayerData { 
-        jump_init_velocity: 1000.,
-        move_speed: 200.,
-        sprite_size: Vec2::splat(20.),
-    })
-    .register_type::<PlayerData>()
-    .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
-    .add_systems(Startup, (
-        spawn_player,
-    ))
-    .add_systems(Update, (
-        player_move,
-        detect_climb_range,
-        ignore_gravity_if_climbing,
-    ));
-}
-
-fn spawn_player(
-    mut cmds: Commands,
-    player_data: Res<PlayerData>
-) {
 }
 
 fn player_move(
