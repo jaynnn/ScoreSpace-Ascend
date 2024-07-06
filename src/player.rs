@@ -1,39 +1,48 @@
-use bevy::prelude::*;
-use leafwing_input_manager::prelude::*;
-use bevy_rapier2d::prelude::*;
-use bevy_inspector_egui::prelude::*;
-use bevy_inspector_egui::quick::ResourceInspectorPlugin;
-use bevy_ecs_ldtk::prelude::*;
-use bevy::utils::HashSet;
-use crate::input;
 use crate::global;
+use crate::input;
 use crate::wall;
-
+use bevy::prelude::*;
+use bevy::transform::commands;
+use bevy::utils::HashSet;
+use bevy_ecs_ldtk::prelude::*;
+use bevy_inspector_egui::prelude::*;
+use bevy_rapier2d::prelude::*;
+use leafwing_input_manager::prelude::*;
 
 use crate::scene::Climbable;
 use crate::scene::ColliderBundle;
+use crate::scene::GroundSensor;
 use crate::scene::Items;
 
 pub fn player_plugin(app: &mut App) {
-    app
-    .insert_resource(PlayerData { 
+    app.insert_resource(PlayerData {
         jump_init_velocity: 1000.,
         move_speed: 200.,
         sprite_size: Vec2::splat(20.),
     })
     .register_type::<PlayerData>()
-    .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
-    .add_systems(Update, (
-        player_move,
-        detect_climb_range,
-        ignore_gravity_if_climbing,
-    ));
+    .add_systems(Update, on_spawn_player)
+    .add_systems(
+        Update,
+        (player_move, detect_climb_range, ignore_gravity_if_climbing),
+    );
 }
-
 
 #[derive(Component, Clone, Default)]
 pub struct Player;
 
+pub fn on_spawn_player(mut commands: Commands, mut players: Query<(Entity), Added<Player>>) {
+    for player_entity in players.iter_mut() {
+        commands
+            .entity(player_entity)
+            .insert(ActiveEvents::COLLISION_EVENTS)
+            .insert(GroundSensor {
+                ground_detection_entity: player_entity,
+                intersecting_ground_entities: HashSet::new(),
+                on_ground: false,
+            });
+    }
+}
 #[derive(Clone, Default, Bundle, LdtkEntity)]
 pub struct PlayerBundle {
     #[sprite_bundle("images/player.png")]
@@ -44,8 +53,6 @@ pub struct PlayerBundle {
     #[worldly]
     pub worldly: Worldly,
     pub climber: Climber,
-    pub ground_detection: GroundDetection,
-
     // Build Items Component manually by using `impl From<&EntityInstance>`
     #[from_entity_instance]
     items: Items,
@@ -55,13 +62,11 @@ pub struct PlayerBundle {
     entity_instance: EntityInstance,
 }
 
-
 #[derive(Clone, Eq, PartialEq, Debug, Default, Component)]
 pub struct Climber {
     pub climbing: bool,
     pub intersecting_climbables: HashSet<Entity>,
 }
-
 
 #[derive(Clone, Default, Component)]
 pub struct GroundDetection {
@@ -81,7 +86,7 @@ pub struct PlayerData {
 
 fn player_move(
     input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Velocity, &mut Climber, &GroundDetection), With<Player>>,
+    mut query: Query<(&mut Velocity, &mut Climber, &GroundSensor), With<Player>>,
 ) {
     for (mut velocity, mut climber, ground_detection) in &mut query {
         let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
@@ -109,10 +114,7 @@ fn player_move(
     }
 }
 
-fn get_mouse_direction(
-    transform: &Transform,
-    cursor_position: Vec2,
-) -> Vec2 {
+fn get_mouse_direction(transform: &Transform, cursor_position: Vec2) -> Vec2 {
     let cursor_position = Vec2::new(cursor_position.x, cursor_position.y);
     let player_position = transform.translation.xy();
     let direction = cursor_position - player_position;
@@ -154,7 +156,6 @@ pub fn detect_climb_range(
         }
     }
 }
-
 
 /// Gravity is multiplied by this scaling factor before it's
 /// applied to this [`RigidBody`].

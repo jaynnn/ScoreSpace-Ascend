@@ -17,6 +17,5 @@ pub fn global_plugin(app: &mut App) {
             gravity: Vec2::new(0., -20. * RAPIER_LENGTH_UNIT),
         }
     )
-    .register_type::<GlobalData>()
-    .add_plugins(ResourceInspectorPlugin::<GlobalData>::default());
+    .register_type::<GlobalData>();
 }
