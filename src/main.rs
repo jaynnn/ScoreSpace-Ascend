@@ -64,7 +64,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     cmds.spawn(Camera2dBundle::default());
-    // rapier_config.gravity = global_data.gravity;
+    rapier_config.gravity = global_data.gravity;
     cmds.spawn(LdtkWorldBundle {
         ldtk_handle: asset_server.load("ldtk/Typical_2D_platformer_example.ldtk"),
         ..Default::default()
