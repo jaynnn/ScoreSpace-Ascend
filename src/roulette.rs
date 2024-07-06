@@ -11,6 +11,7 @@ pub fn roulette_plugin(app: &mut App) {
         .register_type::<Roulette>()
         .add_event::<RouletteRotateEvent>()
         .add_event::<RouletteItemAddEvent>()
+        .add_event::<ShowItemEvent>()
         .add_systems(Startup, (
             setup,
         ))
@@ -20,6 +21,9 @@ pub fn roulette_plugin(app: &mut App) {
         .add_systems(Update, (
             // update_roulette,
             on_add_item,
+            timer_hide_item,
+            show_all_item,
+
             test_add_item,
             test_rotate,
         ));
@@ -37,6 +41,7 @@ pub struct RouletteItem {
 pub struct Roulette {
     list: Vec<Entity>,
     cur_index: usize,
+    timer: Timer,
 }
 
 impl Default for Roulette {
@@ -44,6 +49,7 @@ impl Default for Roulette {
         Self {
             list: vec![],
             cur_index: 0,
+            timer: Timer::from_seconds(2., TimerMode::Repeating),
         }
     }
 }
@@ -51,6 +57,10 @@ impl Default for Roulette {
 impl Roulette {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn get_all_items(&self) -> &Vec<Entity> {
+        &self.list
     }
 
     pub fn len(&self) -> usize {
@@ -116,6 +126,7 @@ pub fn roulette_event(
     mut query_roulette_item: Query<(&mut Transform, &mut RouletteItem)>,
     mut query: Query<&mut Roulette>,
     global_data: Res<GlobalData>,
+    mut show_event: EventWriter<ShowItemEvent>,
 ) {
     for event in roulette_events.read() {
         for mut roulette in query.iter_mut() {
@@ -129,16 +140,18 @@ pub fn roulette_event(
             }
         }
         
-        let roulette = query.single();
+        let mut roulette = query.single_mut();
+        roulette.timer.reset();
         println!("cur_index: {} {}", roulette.get_cur_index(), roulette.len());
         let cur_index = roulette.get_cur_index();
         for i in 0..roulette.len() {
             let item_id = roulette.get_item(i).unwrap();
             if let Ok((mut transform, mut item)) = query_roulette_item.get_mut(*item_id) {
-                println!("======, {} {}", i, cur_index);
+                // println!("======, {} {}", i, cur_index);
                 transform.translation.x = (i as f32 - cur_index as f32) * 50. * global_data.scale;
             }
         }
+        show_event.send(ShowItemEvent::Three);
     }
 }
 
@@ -167,6 +180,7 @@ pub fn on_add_item(
     query_player_e: Query<Entity, With<Player>>,
     asset_server: Res<AssetServer>,
     global_data: Res<GlobalData>,
+    mut show_event: EventWriter<ShowItemEvent>,
 ) {
     if let Ok(player) = query_player_e.get_single()
     {
@@ -193,6 +207,8 @@ pub fn on_add_item(
                     },
                 )).id();
                 roulette.add_item(id);
+                roulette.timer.reset();
+                show_event.send(ShowItemEvent::All);
             });
         }
     }
@@ -206,5 +222,69 @@ pub fn test_add_item(
         events.send(RouletteItemAddEvent {
             id: 1,
         });
+    }
+}
+
+pub fn timer_hide_item(
+    time: Res<Time>,
+    mut query_roulette: Query<&mut Roulette>,
+    mut query_roulette_item: Query<(&mut Visibility, &RouletteItem)>,
+) {
+    let mut roulette = query_roulette.single_mut();
+    roulette.timer.tick(time.delta());
+    
+    if roulette.timer.finished() {
+        if let Some(cur_item_id) = roulette.get_cur_item() {
+            for item_id in roulette.get_all_items() {
+                if let Ok((mut visibility, _)) = query_roulette_item.get_mut(*item_id) {
+                    if item_id != cur_item_id {
+                        // println!("hide item {:?}", item_id);
+                        *visibility = Visibility::Hidden;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+#[derive(Event)]
+pub enum ShowItemEvent {
+    All,
+    Three,
+}
+
+pub fn show_all_item(
+    mut events: EventReader<ShowItemEvent>,
+    roulette: Query<&Roulette>,
+    mut query_roulette_item: Query<(&mut Visibility, &RouletteItem)>,
+) {
+    for evt in events.read() {
+        let roulette = roulette.single();
+        match evt {
+            ShowItemEvent::All => {
+                for item_id in roulette.get_all_items() {
+                    if let Ok((mut visibility, _)) = query_roulette_item.get_mut(*item_id) {
+                        *visibility = Visibility::Visible;
+                    }
+                }
+            }
+            ShowItemEvent::Three => {
+                let cur_index = roulette.get_cur_index();
+                let pre_index = cur_index as i32 - 1;
+                let next_index = cur_index + 1;
+                println!("===== {} {} {}", pre_index, cur_index, next_index);
+                for i in 0..roulette.len() {
+                    let item_id = roulette.get_item(i).unwrap();
+                    if let Ok((mut visibility, _)) = query_roulette_item.get_mut(*item_id) {
+                        if (pre_index >= 0 && i as i32 == pre_index) || i == cur_index || (next_index < roulette.len() && i == next_index) {
+                            *visibility = Visibility::Visible;
+                        } else {
+                            *visibility = Visibility::Hidden;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
