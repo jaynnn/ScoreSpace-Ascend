@@ -12,6 +12,9 @@ mod scene;
 mod ldtk;
 mod enemy;
 mod roulette;
+mod menu;
+mod animate;
+mod bullet;
 
 fn main() {
     let mut app = App::new();
@@ -43,10 +46,12 @@ fn main() {
         ldtk::ldtk_plugin,
         enemy::enemy_plugin,
         roulette::roulette_plugin,
+        animate::animate_plugin,
+        bullet::bullet_plugin,
 
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(global::RAPIER_LENGTH_UNIT),
     ))
-    .add_systems(Startup, setup);
+    .add_systems(Startup, main_setup);
 
     #[cfg(debug_assertions)]
     {
@@ -60,7 +65,7 @@ fn main() {
     app.run();
 }
 
-fn setup(
+pub fn main_setup(
     mut cmds: Commands,
     mut rapier_config: ResMut<RapierConfiguration>,
     global_data: ResMut<global::GlobalData>,

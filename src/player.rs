@@ -1,3 +1,4 @@
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::*;
 use bevy_rapier2d::prelude::*;
@@ -9,6 +10,8 @@ use bevy::utils::HashSet;
 use crate::input;
 use crate::global;
 use crate::wall;
+use crate::roulette::RouletteRotateEvent;
+use crate::bullet::spawn_atk_normal;
 
 
 use crate::scene::Climbable;
@@ -17,13 +20,6 @@ use crate::scene::Items;
 
 pub fn player_plugin(app: &mut App) {
     app
-    .insert_resource(PlayerData { 
-        jump_init_velocity: 1000.,
-        move_speed: 200.,
-        sprite_size: Vec2::splat(20.),
-    })
-    .register_type::<PlayerData>()
-    .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
     .add_systems(Startup, (
         spawn_player,
     ))
@@ -40,7 +36,6 @@ pub struct Player;
 
 #[derive(Clone, Default, Bundle, LdtkEntity)]
 pub struct PlayerBundle {
-    #[sprite_bundle("images/player.png")]
     pub sprite_bundle: SpriteBundle,
     #[from_entity_instance]
     pub collider_bundle: ColliderBundle,
@@ -72,28 +67,22 @@ pub struct GroundDetection {
     pub on_ground: bool,
 }
 
-#[derive(Component)]
-pub struct AtkCoolDownTimer(Timer);
-
-#[derive(Reflect, Resource, Default, InspectorOptions)]
-#[reflect(Resource, InspectorOptions)]
-pub struct PlayerData {
-    pub jump_init_velocity: f32,
-    pub move_speed: f32,
-    pub sprite_size: Vec2,
-}
-
 fn spawn_player(
     mut cmds: Commands,
-    player_data: Res<PlayerData>
 ) {
 }
 
 fn player_move(
+    mut cmds: Commands,
     input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Velocity, &mut Climber, &GroundDetection), With<Player>>,
+    input_mouse_button: Res<ButtonInput<MouseButton>>,
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut query: Query<(&Transform, &mut Velocity, &mut Climber, &GroundDetection), With<Player>>,
+    mut roulette_event: EventWriter<RouletteRotateEvent>,
+    camera_query: Query<(&Camera, &GlobalTransform)>,
+    windows: Query<&Window>,
 ) {
-    for (mut velocity, mut climber, ground_detection) in &mut query {
+    for (transform, mut velocity, mut climber, ground_detection) in &mut query {
         let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
         let left = if input.pressed(KeyCode::KeyA) { 1. } else { 0. };
 
@@ -115,6 +104,29 @@ fn player_move(
         if input.just_pressed(KeyCode::Space) && (ground_detection.on_ground || climber.climbing) {
             velocity.linvel.y = 500.;
             climber.climbing = false;
+        }
+
+        if input_mouse_button.just_pressed(MouseButton::Left) {
+            if let Some(cursor_position) = windows.single().cursor_position() {
+                let (camera, camera_transform) = camera_query.single();
+                if let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+                    let direction = get_mouse_direction(transform, point);
+                    let vel = direction * 1000.;
+                    spawn_atk_normal(&mut cmds, transform, vel, Vec2::new(10., 10.));
+                }
+            }
+        }
+
+        for event in mouse_wheel_events.read() {
+            match event.y {
+                1.0 => {
+                    roulette_event.send(RouletteRotateEvent::Left);
+                }
+                -1.0 => {
+                    roulette_event.send(RouletteRotateEvent::Right);
+                }
+                _ => {}
+            }
         }
     }
 }
