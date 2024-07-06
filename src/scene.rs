@@ -1,23 +1,26 @@
 use bevy::prelude::*;
+use bevy::ui::DefaultCameraView;
+use bevy::utils::HashSet;
 use bevy_ecs_ldtk::{prelude::*, utils::ldtk_pixel_coords_to_translation_pivoted};
 use bevy_rapier2d::prelude::*;
-use bevy::utils::HashSet;
 
-use crate::player::Player;
 use crate::enemy::Enemy;
 use crate::enemy::Patrol;
+use crate::player::Player;
+use crate::wall::Collidable;
 
 pub fn scene_plugin(app: &mut App) {
-    app
-        .add_systems(Update, (
+    app.add_systems(
+        Update,
+        (
             camera_fit_inside_current_level,
             update_level_selection,
-            spawn_ground_sensor,
+            on_spawn_ground_sensor,
             ground_detection,
             update_on_ground,
-        ));
+        ),
+    );
 }
-
 
 #[derive(Clone, Default, Bundle, LdtkEntity)]
 pub struct PumpkinsBundle {
@@ -32,7 +35,6 @@ pub struct ChestBundle {
     #[from_entity_instance]
     pub collider_bundle: ColliderBundle,
 }
-
 
 #[derive(Clone, Default, Bundle, LdtkEntity)]
 pub struct MobBundle {
@@ -117,7 +119,6 @@ pub struct SensorBundle {
     pub rotation_constraints: LockedAxes,
 }
 
-
 impl From<IntGridCell> for SensorBundle {
     fn from(int_grid_cell: IntGridCell) -> SensorBundle {
         let rotation_constraints = LockedAxes::ROTATION_LOCKED;
@@ -143,7 +144,7 @@ pub struct LadderBundle {
     pub climbable: Climbable,
 }
 
-#[derive(Clone, Default, Component)]
+#[derive(Clone, Default, Component, Debug)]
 pub struct GroundDetection {
     pub on_ground: bool,
 }
@@ -152,10 +153,10 @@ pub struct GroundDetection {
 pub struct GroundSensor {
     pub ground_detection_entity: Entity,
     pub intersecting_ground_entities: HashSet<Entity>,
+    pub on_ground: bool,
 }
 
-
-pub fn spawn_ground_sensor(
+pub fn on_spawn_ground_sensor(
     mut commands: Commands,
     detect_ground_for: Query<(Entity, &Collider), Added<GroundDetection>>,
 ) {
@@ -177,21 +178,16 @@ pub fn spawn_ground_sensor(
                     .insert(detector_shape)
                     .insert(Sensor)
                     .insert(Transform::from_translation(sensor_translation))
-                    .insert(GlobalTransform::default())
-                    .insert(GroundSensor {
-                        ground_detection_entity: entity,
-                        intersecting_ground_entities: HashSet::new(),
-                    });
+                    .insert(GlobalTransform::default());
             });
         }
     }
 }
 
-
 pub fn ground_detection(
     mut ground_sensors: Query<&mut GroundSensor>,
     mut collisions: EventReader<CollisionEvent>,
-    collidables: Query<Entity, (With<Collider>, Without<Sensor>)>,
+    collidables: Query<Entity, With<Collider>>,
 ) {
     for collision_event in collisions.read() {
         println!("uuuuuuuuuuuu");
@@ -228,15 +224,9 @@ pub fn ground_detection(
     }
 }
 
-pub fn update_on_ground(
-    mut ground_detectors: Query<&mut GroundDetection>,
-    ground_sensors: Query<&GroundSensor, Changed<GroundSensor>>,
-) {
-    for sensor in &ground_sensors {
-        if let Ok(mut ground_detection) = ground_detectors.get_mut(sensor.ground_detection_entity) {
-            println!("===============1111 {:?} {}", sensor.ground_detection_entity, sensor.intersecting_ground_entities.is_empty());
-            ground_detection.on_ground = !sensor.intersecting_ground_entities.is_empty();
-        }
+pub fn update_on_ground(mut ground_sensors: Query<&mut GroundSensor>) {
+    for mut sensor in ground_sensors.iter_mut() {
+        sensor.on_ground = !sensor.intersecting_ground_entities.is_empty();
     }
 }
 
@@ -286,7 +276,7 @@ pub fn camera_fit_inside_current_level(
             &mut bevy::render::camera::OrthographicProjection,
             &mut Transform,
         ),
-        Without<Player>,
+        (With<IsDefaultUiCamera>, Without<Player>),
     >,
     player_query: Query<&Transform, With<Player>>,
     level_query: Query<(&Transform, &LevelIid), (Without<OrthographicProjection>, Without<Player>)>,

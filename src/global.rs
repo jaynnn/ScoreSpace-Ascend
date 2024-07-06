@@ -19,6 +19,5 @@ pub fn global_plugin(app: &mut App) {
             scale: 1.0,
         }
     )
-    .register_type::<GlobalData>()
-    .add_plugins(ResourceInspectorPlugin::<GlobalData>::default());
+    .register_type::<GlobalData>();
 }

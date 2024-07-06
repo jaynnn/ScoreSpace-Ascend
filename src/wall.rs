@@ -16,6 +16,9 @@ pub fn wall_plugin(app: &mut App) {
         .add_systems(Update, wall_collision);
 }
 
+#[derive(Component)]
+pub struct Collidable;
+
 fn wall_collision(
     mut commands: Commands,
     wall_query: Query<(&GridCoords, &Parent), Added<Wall>>,
@@ -151,6 +154,8 @@ fn wall_collision(
                                     * grid_size as f32
                                     / 2.,
                             ))
+                            .insert(Collidable)
+                            .insert(ActiveEvents::COLLISION_EVENTS)
                             .insert(RigidBody::Fixed)
                             .insert(Friction::new(1.0))
                             .insert(Transform::from_xyz(
