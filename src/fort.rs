@@ -99,7 +99,7 @@ fn fort_update(
                     ..default()
                 },
                 RigidBody::KinematicVelocityBased,
-                Collider::cuboid(5., 5.),
+                Collider::cuboid(10., 10.),
                 JumpBullet,
                 Velocity::linear(vel),
                 Sensor,

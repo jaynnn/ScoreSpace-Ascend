@@ -3,6 +3,8 @@ use leafwing_input_manager::prelude::*;
 use bevy_rapier2d::prelude::*;
 use bevy_inspector_egui::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
+use bevy_ecs_ldtk::prelude::*;
+use bevy::utils::{HashMap, HashSet};
 
 use crate::input;
 use crate::bullet;
@@ -11,7 +13,12 @@ use crate::wall;
 use crate::ground;
 use crate::fort;
 
-#[derive(Component)]
+
+use crate::scene::Climbable;
+use crate::scene::ColliderBundle;
+use crate::scene::Items;
+
+#[derive(Component, Clone, Default)]
 pub struct Player {
     isJumping: bool,
 }
@@ -25,7 +32,7 @@ impl Player {
     pub fn jump(&mut self) {
         self.isJumping = true;
     }
-
+    
     pub fn isJumping(&self) -> bool {
         self.isJumping
     }
@@ -34,6 +41,41 @@ impl Player {
         println!("setJumping {}", jumping);
         self.isJumping = jumping;
     }
+}
+
+
+#[derive(Clone, Default, Bundle, LdtkEntity)]
+pub struct PlayerBundle {
+    #[sprite_bundle("images/player.png")]
+    pub sprite_bundle: SpriteBundle,
+    #[from_entity_instance]
+    pub collider_bundle: ColliderBundle,
+    pub player: Player,
+    #[worldly]
+    pub worldly: Worldly,
+    pub climber: Climber,
+    pub ground_detection: GroundDetection,
+
+    // Build Items Component manually by using `impl From<&EntityInstance>`
+    #[from_entity_instance]
+    items: Items,
+
+    // The whole EntityInstance can be stored directly as an EntityInstance component
+    #[from_entity_instance]
+    entity_instance: EntityInstance,
+}
+
+
+#[derive(Clone, Eq, PartialEq, Debug, Default, Component)]
+pub struct Climber {
+    pub climbing: bool,
+    pub intersecting_climbables: HashSet<Entity>,
+}
+
+
+#[derive(Clone, Default, Component)]
+pub struct GroundDetection {
+    pub on_ground: bool,
 }
 
 #[derive(Component)]
@@ -60,12 +102,10 @@ pub fn player_plugin(app: &mut App) {
         spawn_player,
     ))
     .add_systems(Update, (
-        player_jump,
         player_move,
         player_shoot,
-        collide_wall,
-        collide_ground,
-        collide_jump_bullet,
+        detect_climb_range,
+        ignore_gravity_if_climbing,
     ));
 }
 
@@ -73,79 +113,36 @@ fn spawn_player(
     mut cmds: Commands,
     player_data: Res<PlayerData>
 ) {
-    let input_map = InputMap::new(input::PlayerInputMap::default());
-    
-    let sprite_size = player_data.sprite_size;
-    cmds.spawn((
-        Name::new("Player"),
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::BLACK,
-                custom_size: Some(sprite_size),
-                ..default()
-            },
-            ..default()
-        },
-        Player::new(),
-        InputManagerBundle::with_map(input_map),
-        RigidBody::Dynamic,
-        Velocity::zero(),
-        LockedAxes::ROTATION_LOCKED_Z,
-        Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
-        ActiveEvents::COLLISION_EVENTS,
-    ));
-}
-
-fn player_jump(
-    mut query: Query<(&mut Velocity, &ActionState<input::Action>, &mut Player)>,
-    player_data: Res<PlayerData>,
-    time: Res<Time>,
-    global_data: Res<global::GlobalData>,
-) {
-    for (mut velocity, action_state, mut player) in query.iter_mut() {
-        if action_state.just_pressed(&input::Action::Jump) {
-            if !player.isJumping() {
-                println!("jump {}", player.isJumping());
-                player.setJumping(true);
-                velocity.linvel = Vec2::new(0., 1.) * player_data.jump_init_velocity;
-            }
-        }
-        if player.isJumping() {
-            if velocity.linvel.y == 0. {
-                player.setJumping(false);
-            } else {
-                let gravity = global_data.gravity;
-                velocity.linvel += gravity * time.delta_seconds();
-            }
-        }
-    }
 }
 
 fn player_move(
-    mut query: Query<(&mut Velocity, &ActionState<input::Action>), With<Player>>,
-    player_data: Res<PlayerData>
+    input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(&mut Velocity, &mut Climber, &GroundDetection), With<Player>>,
 ) {
-    for (mut velocity, action_state) in query.iter_mut() {
-        let action_press = action_state.get_pressed();
-        let mut move_delta = Vec2::ZERO;
-        if action_press.len() > 0 {
-            let mut x_axis = 0.;
-            for action in action_press.iter() {
-                match action {
-                    input::Action::LeftMove => {
-                        x_axis -= 1.;
-                    },
-                    input::Action::RightMove => {
-                        x_axis += 1.;
-                    },
-                    _ => {},
-                }
-            }
-            if x_axis != 0. {
-                move_delta = Vec2::new(x_axis, 0.).normalize();
-            }
+    for (mut velocity, mut climber, ground_detection) in &mut query {
+        let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
+        let left = if input.pressed(KeyCode::KeyA) { 1. } else { 0. };
+
+        velocity.linvel.x = (right - left) * 200.;
+
+        if climber.intersecting_climbables.is_empty() {
+            climber.climbing = false;
+        } else if input.just_pressed(KeyCode::KeyW) || input.just_pressed(KeyCode::KeyS) {
+            climber.climbing = true;
         }
-        velocity.linvel.x = move_delta.x * player_data.move_speed;
+
+        if climber.climbing {
+            let up = if input.pressed(KeyCode::KeyW) { 1. } else { 0. };
+            let down = if input.pressed(KeyCode::KeyS) { 1. } else { 0. };
+
+            velocity.linvel.y = (up - down) * 200.;
+        }
+
+        println!("============== {} {}", ground_detection.on_ground, climber.climbing);
+        if input.just_pressed(KeyCode::Space) && (ground_detection.on_ground || climber.climbing) {
+            velocity.linvel.y = 500.;
+            climber.climbing = false;
+        }
     }
 }
 
@@ -182,7 +179,6 @@ fn player_shoot(
     }
 }
 
-// 获取一个给定Transform与鼠标位置的向量
 fn get_mouse_direction(
     transform: &Transform,
     cursor_position: Vec2,
@@ -193,80 +189,63 @@ fn get_mouse_direction(
     direction.normalize()
 }
 
-fn collide_wall(
-    mut collision_events: EventReader<CollisionEvent>,
-    query_player: Query<Entity, With<Player>>,
-    query_wall: Query<Entity, With<wall::Wall>>,
-    mut player: Query<&mut Player>,
+pub fn detect_climb_range(
+    mut climbers: Query<&mut Climber>,
+    climbables: Query<Entity, With<Climbable>>,
+    mut collisions: EventReader<CollisionEvent>,
 ) {
-    for event in collision_events.read() {
-        match event {
-            CollisionEvent::Started(es, ed, _f) => {
-                if query_player.contains(*es) || query_player.contains(*ed) {
-                    if query_wall.contains(*es) || query_wall.contains(*ed) {
-                        let mut player = player.single_mut();
-                        player.setJumping(false);
-                    }
-                
+    for collision in collisions.read() {
+        match collision {
+            CollisionEvent::Started(collider_a, collider_b, _) => {
+                if let (Ok(mut climber), Ok(climbable)) =
+                    (climbers.get_mut(*collider_a), climbables.get(*collider_b))
+                {
+                    climber.intersecting_climbables.insert(climbable);
+                }
+                if let (Ok(mut climber), Ok(climbable)) =
+                    (climbers.get_mut(*collider_b), climbables.get(*collider_a))
+                {
+                    climber.intersecting_climbables.insert(climbable);
+                };
+            }
+            CollisionEvent::Stopped(collider_a, collider_b, _) => {
+                if let (Ok(mut climber), Ok(climbable)) =
+                    (climbers.get_mut(*collider_a), climbables.get(*collider_b))
+                {
+                    climber.intersecting_climbables.remove(&climbable);
+                }
+
+                if let (Ok(mut climber), Ok(climbable)) =
+                    (climbers.get_mut(*collider_b), climbables.get(*collider_a))
+                {
+                    climber.intersecting_climbables.remove(&climbable);
                 }
             }
-            CollisionEvent::Stopped(es, ed, f) => {
-
-            }
         }
-
     }
 }
 
-fn collide_ground(
-    mut collision_events: EventReader<CollisionEvent>,
-    query_player: Query<Entity, With<Player>>,
-    query_ground: Query<Entity, With<ground::Ground>>,
-    mut player: Query<&mut Player>,
-) {
-    for event in collision_events.read() {
-        match event {
-            CollisionEvent::Started(es, ed, _f) => {
-                if query_player.contains(*es) || query_player.contains(*ed) {
-                    if query_ground.contains(*es) || query_ground.contains(*ed) {
-                        let mut player = player.single_mut();
-                        player.setJumping(false);
-                    }
-                
-                }
-            }
-            CollisionEvent::Stopped(es, ed, f) => {
 
-            }
-        }
+/// Gravity is multiplied by this scaling factor before it's
+/// applied to this [`RigidBody`].
+#[derive(Copy, Clone, Debug, PartialEq, Component, Reflect)]
+#[reflect(Component, PartialEq)]
+pub struct GravityScale(pub f32);
 
+impl Default for GravityScale {
+    fn default() -> Self {
+        Self(1.0)
     }
 }
 
-fn collide_jump_bullet(
-    mut query: Query<&mut Player>,
-    mut collision_events: EventReader<CollisionEvent>,
-    query_player: Query<Entity, With<Player>>,
-    query_jump_bullet: Query<Entity, With<fort::JumpBullet>>,
+pub fn ignore_gravity_if_climbing(
+    mut query: Query<(&Climber, &mut GravityScale), Changed<Climber>>,
 ) {
-    let mut player = query.single_mut();
-    for event in collision_events.read() {
-        match event {
-            CollisionEvent::Started(es, ed, _f) => {
-                if query_player.contains(*es) || query_player.contains(*ed) {
-                    if query_jump_bullet.contains(*es) || query_jump_bullet.contains(*ed) {
-                        player.setJumping(false);
-                    }
-                }
-            }
-            CollisionEvent::Stopped(es, ed, f) => {
-                if query_player.contains(*es) || query_player.contains(*ed) {
-                    if query_jump_bullet.contains(*es) || query_jump_bullet.contains(*ed) {
-                        player.setJumping(true);
-
-                    }
-                }
-            }
+    for (climber, mut gravity_scale) in &mut query {
+        if climber.climbing {
+            gravity_scale.0 = 0.0;
+        } else {
+            gravity_scale.0 = 1.0;
         }
     }
 }
