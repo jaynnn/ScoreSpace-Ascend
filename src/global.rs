@@ -8,6 +8,7 @@ pub const RAPIER_LENGTH_UNIT: f32 = 100.0;
 #[reflect(Resource, InspectorOptions)]
 pub struct GlobalData {
     pub gravity: Vec2,
+    pub scale: f32,
 }
 
 pub fn global_plugin(app: &mut App) {
@@ -15,6 +16,7 @@ pub fn global_plugin(app: &mut App) {
     .insert_resource(
         GlobalData {
             gravity: Vec2::new(0., -20. * RAPIER_LENGTH_UNIT),
+            scale: 1.0,
         }
     )
     .register_type::<GlobalData>()

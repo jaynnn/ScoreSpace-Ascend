@@ -14,6 +14,7 @@ mod player;
 mod scene;
 mod ldtk;
 mod enemy;
+mod roulette;
 
 fn main() {
     let mut app = App::new();
@@ -37,7 +38,7 @@ fn main() {
     })
     .insert_resource(LevelSelection::Uid(0))
     .add_plugins((
-        input::input_plugin,
+        // input::input_plugin,
         player::player_plugin,
         bullet::bullet_plugin,
         // ground::ground_plugin,
@@ -47,6 +48,7 @@ fn main() {
         scene::scene_plugin,
         ldtk::ldtk_plugin,
         enemy::enemy_plugin,
+        roulette::roulette_plugin,
 
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(global::RAPIER_LENGTH_UNIT),
     ))

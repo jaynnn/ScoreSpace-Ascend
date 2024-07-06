@@ -28,7 +28,7 @@ pub fn player_plugin(app: &mut App) {
     ))
     .add_systems(Update, (
         player_move,
-        player_shoot,
+        // player_shoot,
         detect_climb_range,
         ignore_gravity_if_climbing,
     ));
