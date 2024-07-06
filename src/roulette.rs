@@ -21,7 +21,6 @@ pub fn roulette_plugin(app: &mut App) {
 #[derive(Component)]
 pub struct RouletteItem {
     pub name: String,
-    #[sprite_bundle("images/.png")]
     pub sprite_bundle: SpriteBundle,
 }
 
