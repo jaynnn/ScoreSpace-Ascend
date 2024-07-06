@@ -1,8 +1,8 @@
 use bevy::{asset, prelude::*, window::WindowResolution};
 use bevy_rapier2d::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
+use bevy_editor_pls::prelude::*;
 
 mod wall;
 mod global;
@@ -58,7 +58,7 @@ fn main() {
         app.add_plugins((
             // LogDiagnosticsPlugin::default(),
             RapierDebugRenderPlugin::default(),
-            WorldInspectorPlugin::new(),
+            EditorPlugin::default()
         ));
     }
 
@@ -71,7 +71,7 @@ pub fn main_setup(
     global_data: ResMut<global::GlobalData>,
     asset_server: Res<AssetServer>,
 ) {
-    cmds.spawn(Camera2dBundle::default());
+    cmds.spawn(Camera2dBundle::default()).insert(IsDefaultUiCamera);
     rapier_config.gravity = global_data.gravity;
     cmds.spawn(LdtkWorldBundle {
         ldtk_handle: asset_server.load("ldtk/Typical_2D_platformer_example.ldtk"),
