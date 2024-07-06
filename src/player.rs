@@ -7,7 +7,8 @@ use bevy_ecs_ldtk::prelude::*;
 use bevy::utils::HashSet;
 
 use crate::input;
-use crate::bullet;
+use crate::global;
+use crate::wall;
 
 
 use crate::scene::Climbable;
@@ -82,6 +83,25 @@ pub struct PlayerData {
     pub sprite_size: Vec2,
 }
 
+pub fn player_plugin(app: &mut App) {
+    app
+    .insert_resource(PlayerData { 
+        jump_init_velocity: 1000.,
+        move_speed: 200.,
+        sprite_size: Vec2::splat(20.),
+    })
+    .register_type::<PlayerData>()
+    .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
+    .add_systems(Startup, (
+        spawn_player,
+    ))
+    .add_systems(Update, (
+        player_move,
+        detect_climb_range,
+        ignore_gravity_if_climbing,
+    ));
+}
+
 fn spawn_player(
     mut cmds: Commands,
     player_data: Res<PlayerData>
@@ -111,43 +131,9 @@ fn player_move(
             velocity.linvel.y = (up - down) * 200.;
         }
 
-        println!("============== {} {}", ground_detection.on_ground, climber.climbing);
         if input.just_pressed(KeyCode::Space) && (ground_detection.on_ground || climber.climbing) {
             velocity.linvel.y = 500.;
             climber.climbing = false;
-        }
-    }
-}
-
-fn player_shoot(
-    mut cmds: Commands,
-    mut query: Query<(&ActionState<input::Action>, &Transform, &mut AtkCoolDownTimer), With<Player>>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
-    windows: Query<&Window>,
-    time: Res<Time>,
-) {
-    let Some(cursor_position) = windows.single().cursor_position() else {
-        return;
-    };
-
-    let (camera, camera_transform) = camera_query.single();
-    let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
-        return;
-    };
-
-    for (action_state, transform, mut cooldown) in query.iter_mut() {
-        cooldown.0.tick(time.delta());
-        trace!("cooldown: {:?}", cooldown.0.elapsed().as_secs_f32());
-        let atk_pressed = action_state.pressed(&input::Action::LeftShoot);
-        let timer_finished = cooldown.0.finished();
-        trace!("atk_pressed: {atk_pressed}, timer_finished: {timer_finished}, timer: {:?}", cooldown.0);
-        if atk_pressed && timer_finished {
-            let direction = get_mouse_direction(transform, point);
-            let vel = direction * 1000.;
-            trace!("attack {vel:?}");
-            let sprite_size = Vec2::splat(8.);
-            bullet::spawn_bullet(&mut cmds, bullet::BulletType::Left, transform, vel, sprite_size);
-            cooldown.0.reset();
         }
     }
 }

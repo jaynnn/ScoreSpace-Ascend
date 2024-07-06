@@ -104,7 +104,6 @@ fn wall_collision(
 
                     plate_stack.push(row_plates);
                 }
-
                 // combine "plates" into rectangles across multiple rows
                 let mut rect_builder: HashMap<Plate, Rect> = HashMap::new();
                 let mut prev_row: Vec<Plate> = Vec::new();
