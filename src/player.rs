@@ -4,45 +4,38 @@ use bevy_rapier2d::prelude::*;
 use bevy_inspector_egui::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_ecs_ldtk::prelude::*;
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::HashSet;
 
 use crate::input;
 use crate::bullet;
-use crate::global;
-use crate::wall;
-use crate::ground;
-use crate::fort;
 
 
 use crate::scene::Climbable;
 use crate::scene::ColliderBundle;
 use crate::scene::Items;
 
+pub fn player_plugin(app: &mut App) {
+    app
+    .insert_resource(PlayerData { 
+        jump_init_velocity: 1000.,
+        move_speed: 200.,
+        sprite_size: Vec2::splat(20.),
+    })
+    .register_type::<PlayerData>()
+    .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
+    .add_systems(Startup, (
+        spawn_player,
+    ))
+    .add_systems(Update, (
+        player_move,
+        player_shoot,
+        detect_climb_range,
+        ignore_gravity_if_climbing,
+    ));
+}
+
 #[derive(Component, Clone, Default)]
-pub struct Player {
-    isJumping: bool,
-}
-
-impl Player {
-    pub fn new() -> Self {
-        Self {
-            isJumping: false,
-        }
-    }
-    pub fn jump(&mut self) {
-        self.isJumping = true;
-    }
-    
-    pub fn isJumping(&self) -> bool {
-        self.isJumping
-    }
-
-    pub fn setJumping(&mut self, jumping: bool) {
-        println!("setJumping {}", jumping);
-        self.isJumping = jumping;
-    }
-}
-
+pub struct Player;
 
 #[derive(Clone, Default, Bundle, LdtkEntity)]
 pub struct PlayerBundle {
@@ -87,26 +80,6 @@ pub struct PlayerData {
     pub jump_init_velocity: f32,
     pub move_speed: f32,
     pub sprite_size: Vec2,
-}
-
-pub fn player_plugin(app: &mut App) {
-    app
-    .insert_resource(PlayerData { 
-        jump_init_velocity: 1000.,
-        move_speed: 200.,
-        sprite_size: Vec2::splat(20.),
-    })
-    .register_type::<PlayerData>()
-    .add_plugins(ResourceInspectorPlugin::<PlayerData>::default())
-    .add_systems(Startup, (
-        spawn_player,
-    ))
-    .add_systems(Update, (
-        player_move,
-        player_shoot,
-        detect_climb_range,
-        ignore_gravity_if_climbing,
-    ));
 }
 
 fn spawn_player(
