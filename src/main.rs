@@ -4,11 +4,8 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier2d::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 
-mod bullet;
-mod ground;
 mod wall;
 mod global;
-mod fort;
 mod input;
 mod player;
 mod scene;
@@ -39,21 +36,13 @@ fn main() {
     .add_plugins((
         input::input_plugin,
         player::player_plugin,
-        bullet::bullet_plugin,
-        // ground::ground_plugin,
         wall::wall_plugin,
         global::global_plugin,
-        // fort::fort_plugin,
         scene::scene_plugin,
         ldtk::ldtk_plugin,
         enemy::enemy_plugin,
-
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(global::RAPIER_LENGTH_UNIT),
     ))
-    .insert_resource(RapierConfiguration {
-        gravity: Vec2::new(0.0, -2000.0),
-        ..default()
-    })
     .add_systems(Startup, setup);
 
     #[cfg(debug_assertions)]
