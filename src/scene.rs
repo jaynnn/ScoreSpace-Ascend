@@ -190,7 +190,6 @@ pub fn ground_detection(
     collidables: Query<Entity, With<Collider>>,
 ) {
     for collision_event in collisions.read() {
-        println!("uuuuuuuuuuuu");
         match collision_event {
             CollisionEvent::Started(e1, e2, _) => {
                 println!("pppppp {} {}", collidables.contains(*e1), collidables.contains(*e2));
