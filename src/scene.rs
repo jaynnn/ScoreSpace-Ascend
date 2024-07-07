@@ -1,4 +1,6 @@
 use bevy::prelude::*;
+use bevy::render::color;
+use bevy::transform;
 use bevy::ui::DefaultCameraView;
 use bevy::utils::HashSet;
 use bevy_ecs_ldtk::{prelude::*, utils::ldtk_pixel_coords_to_translation_pivoted};
@@ -22,6 +24,7 @@ pub fn scene_plugin(app: &mut App) {
             ground_detection,
             update_on_ground,
             check_door_color,
+            check_door_open,
         ),
     );
 }
@@ -31,6 +34,9 @@ enum ColorItem {
     Yellow,
     Red,
 }
+
+#[derive(Component)]
+struct Door;
 
 fn setup(
     mut cmds: Commands,
@@ -58,6 +64,9 @@ fn setup(
             ..Default::default()
         },
         Name::new("door"),
+        Collider::cuboid(110., 850.),
+        Sensor,
+        Door,
     ));
     
     cmds.spawn((
@@ -84,6 +93,7 @@ fn setup(
         },
         ColorItem::Yellow,
         Name::new("yellow_item"),
+        Collider::ball(110.),
         Sensor,
     ));
 
@@ -98,6 +108,7 @@ fn setup(
         },
         ColorItem::Red,
         Name::new("red_item"),
+        Collider::ball(140.),
         Sensor,
     ));
 }
@@ -415,11 +426,76 @@ fn check_door_color(
     for collision_event in collisions.read() {
         match collision_event {
             CollisionEvent::Started(e1, e2, _) => {
-                if (query_color_item.contains(*e1) && query_bullet.contains(*e2)) || (query_color_item.contains(*e2) && query_bullet.contains(*e1)) {
-                    println!("Door open");
+                if query_color_item.contains(*e1) && query_bullet.contains(*e2) {
+                    println!("Door open1");
+                }
+                if query_color_item.contains(*e2) && query_bullet.contains(*e1) {
+                    println!("Door open2");
+
                 }
             }
             _ => {},
+        }
+    }
+}
+
+#[derive(Component)]
+struct EnterText;
+
+fn check_door_open(
+    mut cmds: Commands,
+    mut collisions: EventReader<CollisionEvent>,
+    query1: Query<Entity, (With<Door>, Without<Player>)>,
+    query2: Query<Entity, (With<Player>, Without<Door>)>,
+    query3: Query<Entity, With<EnterText>>,
+    asset_server: Res<AssetServer>,
+) 
+{
+    for collision_event in collisions.read() {
+        match collision_event {
+            CollisionEvent::Started(e1, e2, _) => {
+                let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+                let text_style = TextStyle {
+                    color: Color::BLACK,
+                    font: font.clone(),
+                    font_size: 200.0,
+                    ..default()
+                };
+                let text_justification = JustifyText::Center;
+                if query1.contains(*e1) && query2.contains(*e2) {
+                    cmds.entity(*e1).with_children(|parent| {
+                        parent.spawn((
+                            Text2dBundle {
+                                text: Text::from_section("Enter", text_style.clone())
+                                    .with_justify(text_justification),
+                                transform: Transform::from_xyz(0., 900., 3.),
+                                ..default()
+                            },
+                            EnterText,
+                        ));
+                    });
+                    println!("Door open1");
+                }
+                if query1.contains(*e2) && query2.contains(*e1) {
+                    cmds.entity(*e2).with_children(|parent| {
+                        parent.spawn((
+                            Text2dBundle {
+                                text: Text::from_section("Enter", text_style.clone())
+                                    .with_justify(text_justification),
+                                transform: Transform::from_xyz(0., 900., 3.),
+                                ..default()
+                            },
+                        ));
+                    });
+                    println!("Door open2");
+                }
+            }
+            CollisionEvent::Stopped(e1, e2, _) => {
+                for entity in query3.iter() {
+                    cmds.entity(entity).despawn_recursive();
+                }
+                println!("Door close");
+            },
         }
     }
 }

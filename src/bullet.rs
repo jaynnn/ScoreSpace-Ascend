@@ -53,13 +53,13 @@ fn bullet_linstener(
     roulette_item: Query<(&Transform, &Handle<Image>), With<RouletteItem>>,
 ) {
     for event in events.read() {
-        let sprite_size = Vec2::new(10., 10.);
+        let sprite_size = Vec2::new(70., 70.);
         let transform = event.transform;
         let vel = event.vel;
         let roulette = roulette.single();
         if let Some(cur_item) = roulette.get_cur_item() {
-            spawn_atk_normal(&mut cmds, &transform, vel, sprite_size);
         }
+        spawn_atk_normal(&mut cmds, &transform, vel, sprite_size);
     }
 }
 
