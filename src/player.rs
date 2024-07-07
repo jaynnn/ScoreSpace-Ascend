@@ -1,26 +1,23 @@
-use crate::global;
-use crate::input;
-use crate::wall;
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use bevy::transform::commands;
-use bevy::utils::HashSet;
-use bevy_ecs_ldtk::prelude::*;
-use bevy_inspector_egui::prelude::*;
 use bevy_rapier2d::prelude::*;
-use leafwing_input_manager::prelude::*;
+use bevy_ecs_ldtk::prelude::*;
+use bevy::utils::HashSet;
+
+use crate::roulette::RouletteRotateEvent;
+use crate::bullet::spawn_atk_normal;
 
 use crate::scene::Climbable;
 use crate::scene::ColliderBundle;
 use crate::scene::GroundSensor;
 use crate::scene::Items;
+use crate::animate::PlayerAnimateEvent;
 
 pub fn player_plugin(app: &mut App) {
-    app.insert_resource(PlayerData {
-        jump_init_velocity: 1000.,
-        move_speed: 200.,
-        sprite_size: Vec2::splat(20.),
-    })
-    .register_type::<PlayerData>()
+    app
+    .add_systems(Startup, (
+        spawn_player,
+    ))
     .add_systems(Update, on_spawn_player)
     .add_systems(Update, player_move)
     .add_systems(Update, (detect_climb_range, ignore_gravity_if_climbing));
@@ -49,7 +46,6 @@ pub fn on_spawn_player(mut commands: Commands, mut players: Query<(Entity), Adde
 }
 #[derive(Clone, Default, Bundle, LdtkEntity)]
 pub struct PlayerBundle {
-    #[sprite_bundle("images/player.png")]
     pub sprite_bundle: SpriteBundle,
     #[from_entity_instance]
     pub collider_bundle: ColliderBundle,
@@ -77,22 +73,18 @@ pub struct GroundDetection {
     pub on_ground: bool,
 }
 
-#[derive(Component)]
-pub struct AtkCoolDownTimer(Timer);
-
-#[derive(Reflect, Resource, Default, InspectorOptions)]
-#[reflect(Resource, InspectorOptions)]
-pub struct PlayerData {
-    pub jump_init_velocity: f32,
-    pub move_speed: f32,
-    pub sprite_size: Vec2,
+fn spawn_player(
+    mut cmds: Commands,
+) {
 }
 
 fn player_move(
+    mut cmds: Commands,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut query: Query<
         (
+            &Transform,
             &mut Velocity,
             &mut Climber,
             &GroundSensor,
@@ -102,15 +94,24 @@ fn player_move(
         With<Player>,
     >,
     climbables: Query<Entity, With<Climbable>>,
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    input_mouse_button: Res<ButtonInput<MouseButton>>,
     mut vertical_movement: Local<f32>,
+    mut roulette_event: EventWriter<RouletteRotateEvent>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<IsDefaultUiCamera>>,
+    windows: Query<&Window>,
+    mut animate_event: EventWriter<PlayerAnimateEvent>,
     mut grounded_timer: Local<f32>,
 ) {
     let delta_time = time.delta_seconds();
-    for (mut velocity, mut climber, ground_detection, mut controller, output) in &mut query {
+    for (transform, mut velocity, mut climber, ground_detection, mut controller, output) in &mut query {
         let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
         let left = if input.pressed(KeyCode::KeyA) { 1. } else { 0. };
         let mut movement = Vec2::ZERO;
         movement.x = (right - left) * 2.;
+        if right - left != 0.0 {
+            animate_event.send(PlayerAnimateEvent::Walk(velocity.linvel));
+        }
         if output.map(|o| o.grounded).unwrap_or(false) {
             *grounded_timer = 0.5;
             *vertical_movement = 0.0;
@@ -133,7 +134,6 @@ fn player_move(
             movement.y = 3.;
             climber.climbing = false;
         }
-
         let jump_speed = movement.y;
         // If we are grounded we can jump
         if *grounded_timer > 0.0 {
@@ -148,7 +148,32 @@ fn player_move(
         if (!climber.climbing) {
             *vertical_movement += -9.81 * delta_time;
         }
-        controller.translation = Some(movement)
+        controller.translation = Some(movement);
+
+        if input_mouse_button.just_pressed(MouseButton::Left) {
+            if let Some(cursor_position) = windows.single().cursor_position() {
+                for (camera, camera_transform) in camera_query.iter() {
+                    if let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+                        let direction = get_mouse_direction(transform, point);
+                        let vel = direction * 1000.;
+                        spawn_atk_normal(&mut cmds, transform, vel, Vec2::new(10., 10.));
+                    }
+                }
+            }
+        }
+
+        for event in mouse_wheel_events.read() {
+            match event.y {
+                1.0 => {
+                    roulette_event.send(RouletteRotateEvent::Left);
+                }
+                -1.0 => {
+                    roulette_event.send(RouletteRotateEvent::Right);
+                }
+                _ => {}
+            }
+        }
+
     }
 }
 

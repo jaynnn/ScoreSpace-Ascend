@@ -93,12 +93,16 @@ impl Roulette {
 
     // 切换到下一个物品
     pub fn next(&mut self) {
-        self.cur_index = (self.cur_index + 1) % self.list.len();
+        if self.list.len() > 0 {
+            self.cur_index = (self.cur_index + 1) % self.list.len();
+        }
     }
 
     // 切换到上一个物品
     pub fn prev(&mut self) {
-        self.cur_index = (self.cur_index + self.list.len() - 1) % self.list.len();
+        if self.list.len() > 0 {
+            self.cur_index = (self.cur_index + self.list.len() - 1) % self.list.len();
+        }
     }
 }
 
