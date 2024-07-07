@@ -36,6 +36,9 @@ enum ColorItem {
 }
 
 #[derive(Component)]
+struct DoorColorHandle(Handle<Image>);
+
+#[derive(Component)]
 struct Door;
 
 fn setup(
@@ -92,6 +95,7 @@ fn setup(
             ..Default::default()
         },
         ColorItem::Yellow,
+        DoorColorHandle(asset_server.load("images/door_yellow.png")),
         Name::new("yellow_item"),
         Collider::ball(110.),
         Sensor,
@@ -107,6 +111,7 @@ fn setup(
             ..Default::default()
         },
         ColorItem::Red,
+        DoorColorHandle(asset_server.load("images/door_red.png")),
         Name::new("red_item"),
         Collider::ball(140.),
         Sensor,
@@ -416,22 +421,60 @@ pub fn camera_fit_inside_current_level(
     }
 }
 
+#[derive(Component)]
+struct DoorBackgound;
 
 fn check_door_color(
+    mut cmds: Commands,
     mut collisions: EventReader<CollisionEvent>,
     query_color_item: Query<Entity, (With<ColorItem>, Without<AtkNormal>)>,
     query_bullet: Query<Entity, (With<AtkNormal>, Without<ColorItem>)>,
+    query_door: Query<&Transform, With<Door>>,
+    query_color_item_handle: Query<&DoorColorHandle>,
+    query_door_bg: Query<Entity, With<DoorBackgound>>,
 ) 
 {
     for collision_event in collisions.read() {
         match collision_event {
             CollisionEvent::Started(e1, e2, _) => {
+                let door = query_door.single();
                 if query_color_item.contains(*e1) && query_bullet.contains(*e2) {
-                    println!("Door open1");
+                    for entity in query_door_bg.iter() {
+                        cmds.entity(entity).despawn_recursive();
+                    }
+                    let texture = query_color_item_handle.get(*e1).unwrap().0.clone();
+                    cmds.spawn((
+                        SpriteBundle {
+                            sprite: Sprite {
+                                ..Default::default()
+                            },
+                            transform: Transform::from_xyz(door.translation.x, door.translation.y - 65., -0.5).with_scale(Vec3 { x: 0.3, y: 0.3, z: 0. }),
+                            texture,
+                            ..Default::default()
+                        },
+                        Name::new("door_open"),
+                        DoorBackgound,
+                    ));
+                    println!("Door open11111");
                 }
                 if query_color_item.contains(*e2) && query_bullet.contains(*e1) {
-                    println!("Door open2");
-
+                    for entity in query_door_bg.iter() {
+                        cmds.entity(entity).despawn_recursive();
+                    }
+                    let texture = query_color_item_handle.get(*e2).unwrap().0.clone();
+                    cmds.spawn((
+                        SpriteBundle {
+                            sprite: Sprite {
+                                ..Default::default()
+                            },
+                            transform: Transform::from_xyz(door.translation.x, door.translation.y - 65., -0.5).with_scale(Vec3 { x: 0.3, y: 0.3, z: 0. }),
+                            texture,
+                            ..Default::default()
+                        },
+                        Name::new("door_open"),
+                        DoorBackgound,
+                    ));
+                    println!("Door open22222");
                 }
             }
             _ => {},
@@ -491,10 +534,12 @@ fn check_door_open(
                 }
             }
             CollisionEvent::Stopped(e1, e2, _) => {
-                for entity in query3.iter() {
-                    cmds.entity(entity).despawn_recursive();
+                if (query1.contains(*e1) && query2.contains(*e2) || query1.contains(*e2) && query2.contains(*e1)) {
+                    for entity in query3.iter() {
+                        cmds.entity(entity).despawn_recursive();
+                    }
+                    println!("Door close");
                 }
-                println!("Door close");
             },
         }
     }
