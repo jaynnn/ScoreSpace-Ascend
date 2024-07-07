@@ -145,6 +145,8 @@ fn player_move(
         movement.x = (right - left) * 2.;
         if right - left != 0.0 {
             animate_event.send(PlayerAnimateEvent::Walk(Vec2::new(right-left, 0.0)));
+        } else {
+            animate_event.send(PlayerAnimateEvent::Idle(Vec2::new(right-left, 0.0)));
         }
         if output.map(|o| o.grounded).unwrap_or(false) {
             *grounded_timer = 0.5;
@@ -165,7 +167,7 @@ fn player_move(
         }
 
         if input.just_pressed(KeyCode::Space) {
-            movement.y = 3.;
+            movement.y = 5.;
             climber.climbing = false;
         }
         let jump_speed = movement.y;

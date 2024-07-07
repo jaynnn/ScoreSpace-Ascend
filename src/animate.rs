@@ -51,6 +51,7 @@ pub fn setup(
         let animation_indices = PlayerAnimateIndices {
             run: AnimationIndices { first: 0, last: 3 },
             walk: AnimationIndices { first: 4, last: 7 },
+            idle: AnimationIndices { first: 4, last: 4},
             ..default()
         };
         cmds.entity(player_e)
@@ -122,6 +123,7 @@ pub fn player_animate(
                     println!("Die");
                 }
                 PlayerAnimateEvent::Idle(vel) => {
+                    player_atlas.index = player_animate_indices.idle.first;
                     println!("Idle");
                 }
             }
