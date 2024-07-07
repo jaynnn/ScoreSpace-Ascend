@@ -16,6 +16,7 @@ mod menu;
 mod animate;
 mod bullet;
 mod comm;
+mod config;
 
 fn main() {
     let mut app = App::new();
@@ -49,10 +50,14 @@ fn main() {
         roulette::roulette_plugin,
         animate::animate_plugin,
         bullet::bullet_plugin,
+        config::config_plugin,
 
         RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(global::RAPIER_LENGTH_UNIT),
     ))
     .add_systems(Startup, main_setup);
+
+    app
+        .init_state::<AppState>();
 
     #[cfg(debug_assertions)]
     {
@@ -66,6 +71,15 @@ fn main() {
     app.run();
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, States)]
+enum AppState {
+    Menu,
+    #[default]
+    GameMain,
+    GameSub,
+    GameOver,
+}
+
 pub fn main_setup(
     mut cmds: Commands,
     mut rapier_config: ResMut<RapierConfiguration>,
@@ -74,8 +88,10 @@ pub fn main_setup(
 ) {
     cmds.spawn(Camera2dBundle::default()).insert(IsDefaultUiCamera);
     rapier_config.gravity = global_data.gravity;
-    cmds.spawn(LdtkWorldBundle {
-        ldtk_handle: asset_server.load("ldtk/Typical_2D_platformer_example.ldtk"),
-        ..Default::default()
-    });
+
+
+    // cmds.spawn(LdtkWorldBundle {
+    //     ldtk_handle: asset_server.load("ldtk/Typical_2D_platformer_example.ldtk"),
+    //     ..Default::default()
+    // });
 }

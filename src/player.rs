@@ -1,9 +1,11 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy_rapier2d::prelude::*;
 use bevy_ecs_ldtk::prelude::*;
 use bevy::utils::HashSet;
 
+use crate::bullet::BulletEvent;
 use crate::roulette::RouletteRotateEvent;
 use crate::bullet::spawn_atk_normal;
 
@@ -21,7 +23,7 @@ pub fn player_plugin(app: &mut App) {
     .add_systems(Update, on_spawn_player)
     .add_systems(
         Update,
-        (player_move, detect_climb_range, ignore_gravity_if_climbing),
+        (player_move, detect_climb_range, ignore_gravity_if_climbing, cursor_move),
     );
 }
 
@@ -69,9 +71,41 @@ pub struct GroundDetection {
     pub on_ground: bool,
 }
 
+fn cursor_move(
+    camera_query: Query<(&Camera, &GlobalTransform), With<IsDefaultUiCamera>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut gizmos: Gizmos,
+) {
+    let (camera, camera_transform) = camera_query.single();
+    let Some(cursor_position) = windows.single().cursor_position() else {
+        return;
+    };
+    let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+        return;
+    };
+    gizmos.circle_2d(point, 10., Color::WHITE);
+}
+
 fn spawn_player(
     mut cmds: Commands,
 ) {
+    cmds.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                ..default()
+            },
+            transform: Transform::from_xyz(0., 0., 0.),
+            ..default()
+        },
+        Player,
+        ColliderBundle {
+            collider: Collider::cuboid(36.75, 130.),
+            rotation_constraints: LockedAxes::ROTATION_LOCKED,
+            ..default()
+        },
+        Climber::default(),
+        Name::new("player"),
+    ));
 }
 
 fn player_move(
@@ -83,7 +117,8 @@ fn player_move(
     mut roulette_event: EventWriter<RouletteRotateEvent>,
     camera_query: Query<(&Camera, &GlobalTransform), With<IsDefaultUiCamera>>,
     windows: Query<&Window>,
-    mut animate_event: EventWriter<PlayerAnimateEvent>
+    mut animate_event: EventWriter<PlayerAnimateEvent>,
+    mut bullet_event: EventWriter<BulletEvent>,
 ) {
     for (transform, mut velocity, mut climber, ground_detection) in &mut query {
         let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
@@ -118,7 +153,7 @@ fn player_move(
                     if let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
                         let direction = get_mouse_direction(transform, point);
                         let vel = direction * 1000.;
-                        spawn_atk_normal(&mut cmds, transform, vel, Vec2::new(10., 10.));
+                        bullet_event.send(BulletEvent { transform: *transform, vel});
                     }
                 }
             }

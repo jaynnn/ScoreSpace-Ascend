@@ -1,10 +1,14 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+use crate::roulette::{self, Roulette, RouletteItem};
+
 pub fn bullet_plugin(app: &mut App) {
     app
+    .add_event::<BulletEvent>()
     .add_systems(Update, (
         run,
+        bullet_linstener,
     ));
 }
 
@@ -36,6 +40,29 @@ pub fn run(
     }
 }
 
+#[derive(Event)]
+pub struct BulletEvent {
+    pub transform: Transform,
+    pub vel: Vec2,
+}
+
+fn bullet_linstener(
+    mut cmds: Commands,
+    mut events: EventReader<BulletEvent>,
+    roulette: Query<(&Roulette)>,
+    roulette_item: Query<(&Transform, &Handle<Image>), With<RouletteItem>>,
+) {
+    for event in events.read() {
+        let sprite_size = Vec2::new(10., 10.);
+        let transform = event.transform;
+        let vel = event.vel;
+        let roulette = roulette.single();
+        if let Some(cur_item) = roulette.get_cur_item() {
+            spawn_atk_normal(&mut cmds, &transform, vel, sprite_size);
+        }
+    }
+}
+
 pub fn spawn_atk_normal(
     cmds: &mut Commands,
     transform: &Transform,
@@ -53,7 +80,7 @@ pub fn spawn_atk_normal(
             transform: transform.clone(),
             ..default()
         },
-        Sensor,
+        // Sensor,
         AtkNormal,
         RigidBody::Dynamic,
         Velocity::linear(vel),

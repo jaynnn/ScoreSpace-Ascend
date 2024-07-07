@@ -1,10 +1,11 @@
 // 道具轮盘
 
 use bevy::ecs::event;
-use bevy::{prelude::*, transform};
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use crate::player::Player;
-use crate::global::{self, GlobalData};
+use crate::global::GlobalData;
 
 pub fn roulette_plugin(app: &mut App) {
     app
@@ -33,7 +34,15 @@ pub fn roulette_plugin(app: &mut App) {
 #[derive(Component)]
 pub struct RouletteItem {
     pub id: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug, TypePath, Asset, Clone)]
+pub struct RouletteItemInfo {
+    pub id: u32,
     pub name: String,
+    pub texture: String,
+    pub width: f32,
+    pub height: f32,
 }
 
 // 轮盘
@@ -185,6 +194,7 @@ pub fn on_add_item(
     asset_server: Res<AssetServer>,
     global_data: Res<GlobalData>,
     mut show_event: EventWriter<ShowItemEvent>,
+    item_infos: Res<Assets<RouletteItemInfo>>,
 ) {
     if let Ok(player) = query_player_e.get_single()
     {
@@ -194,10 +204,10 @@ pub fn on_add_item(
                 let roulette_len = roulette.len();
                 let cur_index = roulette.get_cur_index();
                 let transform_x = (roulette_len - cur_index) as f32 * 50. * global_data.scale;
+                // let item_info = item_infos.get(&event.id).unwrap();
                 let id = parent.spawn((
                     RouletteItem {
                         id: event.id,
-                        name: "test".to_string(),
                     }, SpriteBundle {
                         sprite: Sprite {
                             ..default()

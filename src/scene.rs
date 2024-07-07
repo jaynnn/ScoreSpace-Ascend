@@ -4,13 +4,16 @@ use bevy::utils::HashSet;
 use bevy_ecs_ldtk::{prelude::*, utils::ldtk_pixel_coords_to_translation_pivoted};
 use bevy_rapier2d::prelude::*;
 
+use crate::bullet::AtkNormal;
 use crate::enemy::Enemy;
 use crate::enemy::Patrol;
 use crate::player::Player;
 use crate::wall::Collidable;
 
 pub fn scene_plugin(app: &mut App) {
-    app.add_systems(
+    app
+    .add_systems(Startup, setup)
+    .add_systems(
         Update,
         (
             camera_fit_inside_current_level,
@@ -18,8 +21,85 @@ pub fn scene_plugin(app: &mut App) {
             on_spawn_ground_sensor,
             ground_detection,
             update_on_ground,
+            check_door_color,
         ),
     );
+}
+
+#[derive(Component)]
+enum ColorItem {
+    Yellow,
+    Red,
+}
+
+fn setup(
+    mut cmds: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    cmds.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(0., 0., -1.0).with_scale(Vec3 { x: 0.4, y: 0.4, z: 0. }),
+            texture: asset_server.load("images/bg.png"),
+            ..Default::default()
+        },
+        Name::new("bg"),
+    ));
+
+    cmds.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(0., 0., 0.).with_scale(Vec3 { x: 0.3, y: 0.3, z: 0. }),
+            texture: asset_server.load("images/door.png"),
+            ..Default::default()
+        },
+        Name::new("door"),
+    ));
+    
+    cmds.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::GRAY,
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(0., -305.3, 0.),
+            ..Default::default()
+        },
+        Name::new("floor"),
+        Collider::cuboid(1000., 50.),
+    ));
+
+    cmds.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(-250., 100., 0.).with_scale(Vec3 { x: 0.3, y: 0.3, z: 0. }),
+            texture: asset_server.load("images/yellow.png"),
+            ..Default::default()
+        },
+        ColorItem::Yellow,
+        Name::new("yellow_item"),
+        Sensor,
+    ));
+
+    cmds.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                ..Default::default()
+            },
+            transform: Transform::from_xyz(200., 200., 0.).with_scale(Vec3 { x: 0.3, y: 0.3, z: 0. }),
+            texture: asset_server.load("images/red.png"),
+            ..Default::default()
+        },
+        ColorItem::Red,
+        Name::new("red_item"),
+        Sensor,
+    ));
 }
 
 #[derive(Clone, Default, Bundle, LdtkEntity)]
@@ -323,6 +403,25 @@ pub fn camera_fit_inside_current_level(
                 camera_transform.translation.x += level_transform.translation.x;
                 camera_transform.translation.y += level_transform.translation.y;
             }
+        }
+    }
+}
+
+
+fn check_door_color(
+    mut collisions: EventReader<CollisionEvent>,
+    query_color_item: Query<Entity, (With<ColorItem>, Without<AtkNormal>)>,
+    query_bullet: Query<Entity, (With<AtkNormal>, Without<ColorItem>)>,
+) 
+{
+    for collision_event in collisions.read() {
+        match collision_event {
+            CollisionEvent::Started(e1, e2, _) => {
+                if (query_color_item.contains(*e1) && query_bullet.contains(*e2)) || (query_color_item.contains(*e2) && query_bullet.contains(*e1)) {
+                    println!("Door open");
+                }
+            }
+            _ => {},
         }
     }
 }

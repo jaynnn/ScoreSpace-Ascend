@@ -45,8 +45,8 @@ pub fn setup(
         return;
     }
     for (player_e, transform) in query_player.iter_mut() {
-        let texture: Handle<Image>  = asset_server.load("atlas/run_walk.png");
-        let layout = TextureAtlasLayout::from_grid(Vec2::new(25.0, 30.0), 4, 2, None, None);
+        let texture: Handle<Image>  = asset_server.load("atlas/run_walk_2.png");
+        let layout = TextureAtlasLayout::from_grid(Vec2::new(245.0, 305.0), 4, 2, None, None);
         let texture_atlas_layout: Handle<TextureAtlasLayout> = texture_atlas_layouts.add(layout);
         let animation_indices = PlayerAnimateIndices {
             run: AnimationIndices { first: 0, last: 3 },
@@ -61,7 +61,7 @@ pub fn setup(
                 index: animation_indices.walk.first,
             })
             .insert(texture)
-            .insert(transform.with_scale(Vec3::splat(0.8)));
+            .insert(transform.with_scale(Vec3::splat(0.3)));
         local_data.0 = true;
     }
 }

@@ -12,6 +12,8 @@ bevy_ecs_ldtk = { git = "https://github.com/Trouv/bevy_ecs_ldtk.git" }
 bevy_editor_pls = "0.8.1"
 bevy_rapier2d = "0.25.0"
 leafwing-input-manager = "0.13.3"
+bevy_common_assets = {version = "0.10.0", features = ["csv"]}
+serde = "1.0.201"
 
 [patch.crates-io]
 # Patch unstable version to resolve conflicting dependencies from bevy_ecs_ldtk
