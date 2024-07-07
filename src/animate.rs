@@ -52,7 +52,7 @@ pub fn setup(
                 first: 18,
                 last: 21,
             },
-            idle: AnimationIndices { first: 0, last: 0 }..default(),
+            idle: AnimationIndices { first: 0, last: 0 },
         };
         cmds.entity(player_e)
             .insert(animation_indices.clone())
