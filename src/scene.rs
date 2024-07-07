@@ -14,7 +14,7 @@ use crate::wall::Collidable;
 
 pub fn scene_plugin(app: &mut App) {
     app
-    .add_systems(Startup, setup)
+    // .add_systems(Startup, setup)
     .add_systems(
         Update,
         (
@@ -170,7 +170,7 @@ impl From<&EntityInstance> for ColliderBundle {
 
         match entity_instance.identifier.as_ref() {
             "Player" => ColliderBundle {
-                collider: Collider::cuboid(6., 14.),
+                collider: Collider::capsule_y(32., 32.),
                 rigid_body: RigidBody::KinematicVelocityBased,
                 friction: Friction {
                     coefficient: 0.0,

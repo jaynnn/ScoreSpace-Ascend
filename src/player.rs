@@ -1,31 +1,89 @@
+use bevy::ecs::query;
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
-use bevy_rapier2d::prelude::*;
-use bevy_ecs_ldtk::prelude::*;
 use bevy::utils::HashSet;
+use bevy::window::PrimaryWindow;
+use bevy_ecs_ldtk::prelude::*;
+use bevy_rapier2d::prelude::*;
 
 use crate::bullet::BulletEvent;
 use crate::roulette::RouletteRotateEvent;
 
+use crate::animate::PlayerAnimateEvent;
 use crate::scene::Climbable;
 use crate::scene::ColliderBundle;
 use crate::scene::GroundSensor;
 use crate::scene::Items;
-use crate::animate::PlayerAnimateEvent;
 
 pub fn player_plugin(app: &mut App) {
     app
-    .add_systems(Startup, (
-        spawn_player,
-    ))
-    .add_systems(Update, on_spawn_player)
-    .add_systems(Update, player_move)
-    .add_systems(Update, (detect_climb_range, ignore_gravity_if_climbing, cursor_move));
+        // .add_systems(Startup, (
+        //     spawn_player,
+        // ))
+        .add_systems(Update, on_spawn_player)
+        .add_systems(
+            Update,
+            (player_move, level_selection_follow_player, respawn_level),
+        )
+        .add_systems(
+            Update,
+            (detect_climb_range, ignore_gravity_if_climbing, cursor_move),
+        );
 }
 
 #[derive(Component, Clone, Default)]
 pub struct Player;
+
+fn iterate_ancestors(
+    entity: Entity,
+    parent_query: &Query<&Parent>,
+    level_query: &Query<(Entity, &LevelIid)>,
+) -> Option<Entity> {
+    let mut return_entity = None;
+    for ancestor in parent_query.iter_ancestors(entity) {
+        info!("{:?} is an ancestor of {:?}", ancestor, entity);
+        if level_query.get(ancestor).is_ok() {
+            return_entity = Some(ancestor)
+        }
+    }
+    return_entity
+}
+
+fn respawn_level(
+    mut commands: Commands,
+    level_selection: Res<LevelSelection>,
+    levels: Query<(Entity, &LevelIid)>,
+    parent_query: Query<&Parent>,
+    respawn_points: Query<(Entity, &EntityIid, &GlobalTransform), With<RespawnPoint>>,
+    mut players: Query<(&mut Transform), (With<Player>, Without<RespawnPoint>)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    if input.just_pressed(KeyCode::KeyR) {
+        let level_selection_iid = match level_selection.as_ref() {
+            LevelSelection::Iid(iid) => iid,
+            _ => panic!("level should always be selected by iid in this example"),
+        };
+
+        for (level_entity, level_iid) in levels.iter() {
+            println!("{:#?}", level_selection_iid);
+
+            if level_iid == level_selection_iid {
+                for (respawn_point_entity, level_id, transform) in &respawn_points {
+                    dbg!(level_id.as_str(), level_selection_iid.as_str(),);
+                    if iterate_ancestors(respawn_point_entity, &parent_query, &levels)
+                        == Some(level_entity)
+                    {
+                        for mut player_transform in &mut players {
+                            player_transform.translation = transform.translation().clone();
+                        }
+                    }
+                    if level_id.as_str() == level_selection_iid.as_str() {}
+                }
+                // commands.entity(level_entity).insert(Respawn);
+            }
+        }
+    }
+}
 
 pub fn on_spawn_player(mut commands: Commands, mut players: Query<(Entity), Added<Player>>) {
     for player_entity in players.iter_mut() {
@@ -63,6 +121,17 @@ pub struct PlayerBundle {
     entity_instance: EntityInstance,
 }
 
+#[derive(Clone, Default, Bundle, LdtkEntity)]
+pub struct RespawnPointBundle {
+    pub respawn_point: RespawnPoint,
+    pub global_transform: GlobalTransform,
+    #[from_entity_instance]
+    entity_instance: EntityInstance,
+}
+
+#[derive(Clone, Default, Component)]
+pub struct RespawnPoint;
+
 #[derive(Clone, Eq, PartialEq, Debug, Default, Component)]
 pub struct Climber {
     pub climbing: bool,
@@ -72,6 +141,41 @@ pub struct Climber {
 #[derive(Clone, Default, Component)]
 pub struct GroundDetection {
     pub on_ground: bool,
+}
+
+fn level_selection_follow_player(
+    players: Query<&GlobalTransform, With<Player>>,
+    levels: Query<(&LevelIid, &GlobalTransform)>,
+    ldtk_projects: Query<&Handle<LdtkProject>>,
+    ldtk_project_assets: Res<Assets<LdtkProject>>,
+    mut level_selection: ResMut<LevelSelection>,
+) {
+    if let Ok(player_transform) = players.get_single() {
+        let ldtk_project = ldtk_project_assets
+            .get(ldtk_projects.single())
+            .expect("ldtk project should be loaded before player is spawned");
+
+        for (level_iid, level_transform) in levels.iter() {
+            let level = ldtk_project
+                .get_raw_level_by_iid(level_iid.get())
+                .expect("level should exist in only project");
+
+            let level_bounds = Rect {
+                min: Vec2::new(
+                    level_transform.translation().x,
+                    level_transform.translation().y,
+                ),
+                max: Vec2::new(
+                    level_transform.translation().x + level.px_wid as f32,
+                    level_transform.translation().y + level.px_hei as f32,
+                ),
+            };
+
+            if level_bounds.contains(player_transform.translation().truncate()) {
+                *level_selection = LevelSelection::Iid(level_iid.clone());
+            }
+        }
+    }
 }
 
 fn cursor_move(
@@ -89,14 +193,10 @@ fn cursor_move(
     gizmos.circle_2d(point, 10., Color::WHITE);
 }
 
-fn spawn_player(
-    mut cmds: Commands,
-) {
+fn spawn_player(mut cmds: Commands) {
     cmds.spawn((
         SpriteBundle {
-            sprite: Sprite {
-                ..default()
-            },
+            sprite: Sprite { ..default() },
             transform: Transform::from_xyz(0., 0., 5.),
             ..default()
         },
@@ -138,21 +238,23 @@ fn player_move(
     mut bullet_event: EventWriter<BulletEvent>,
 ) {
     let delta_time = time.delta_seconds();
-    for (transform, mut velocity, mut climber, ground_detection, mut controller, output) in &mut query {
+    for (transform, mut velocity, mut climber, ground_detection, mut controller, output) in
+        &mut query
+    {
         let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
         let left = if input.pressed(KeyCode::KeyA) { 1. } else { 0. };
         let mut movement = Vec2::ZERO;
         movement.x = (right - left) * 2.;
         if right - left != 0.0 {
-            animate_event.send(PlayerAnimateEvent::Walk(Vec2::new(right-left, 0.0)));
+            animate_event.send(PlayerAnimateEvent::Walk(Vec2::new(right - left, 0.0)));
         } else {
-            animate_event.send(PlayerAnimateEvent::Idle(Vec2::new(right-left, 0.0)));
+            animate_event.send(PlayerAnimateEvent::Idle(Vec2::new(right - left, 0.0)));
         }
         if output.map(|o| o.grounded).unwrap_or(false) {
             *grounded_timer = 0.5;
             *vertical_movement = 0.0;
         }
-        
+
         if climber.intersecting_climbables.is_empty() {
             climber.climbing = false;
         } else if input.just_pressed(KeyCode::KeyW) || input.just_pressed(KeyCode::KeyS) {
@@ -162,12 +264,12 @@ fn player_move(
         if climber.climbing {
             let up = if input.pressed(KeyCode::KeyW) { 1. } else { 0. };
             let down = if input.pressed(KeyCode::KeyS) { 1. } else { 0. };
-            movement.y = 2.0;
+            movement.y = 200.0 * delta_time;
             *vertical_movement = (up - down) * 2.;
         }
 
         if input.just_pressed(KeyCode::Space) {
-            movement.y = 5.;
+            movement.y = 500. * delta_time;
             climber.climbing = false;
         }
         let jump_speed = movement.y;
@@ -181,7 +283,7 @@ fn player_move(
             }
         }
         movement.y = *vertical_movement;
-        if (!climber.climbing) {
+        if !climber.climbing {
             *vertical_movement += -9.81 * delta_time;
         }
         controller.translation = Some(movement);
@@ -189,10 +291,19 @@ fn player_move(
         if input_mouse_button.just_pressed(MouseButton::Left) {
             if let Some(cursor_position) = windows.single().cursor_position() {
                 for (camera, camera_transform) in camera_query.iter() {
-                    if let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+                    if let Some(point) =
+                        camera.viewport_to_world_2d(camera_transform, cursor_position)
+                    {
                         let direction = get_mouse_direction(transform, point);
                         let vel = direction * 1500.;
-                        bullet_event.send(BulletEvent { transform: Transform::from_xyz(transform.translation.x + direction.x * 100.0, transform.translation.y + direction.y * 100.0, transform.translation.z), vel});
+                        bullet_event.send(BulletEvent {
+                            transform: Transform::from_xyz(
+                                transform.translation.x + direction.x * 16.0,
+                                transform.translation.y + direction.y * 16.0,
+                                transform.translation.z,
+                            ),
+                            vel,
+                        });
                     }
                 }
             }
@@ -209,7 +320,6 @@ fn player_move(
                 _ => {}
             }
         }
-
     }
 }
 

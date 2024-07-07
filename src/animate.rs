@@ -93,55 +93,56 @@ pub fn player_animate(
     time: Res<Time>,
 ) {
     for e in evt.read() {
-        let (player_animate_indices, mut animate_timer, mut player_atlas, mut sprie) =
-            query.single_mut();
-        animate_timer.tick(time.delta());
-        if animate_timer.just_finished() {
-            match e {
-                PlayerAnimateEvent::Run(vel) => {
-                    if player_animate_indices.run.first <= player_atlas.index
-                        && player_atlas.index <= player_animate_indices.run.last
-                    {
-                        player_atlas.index =
-                            if player_atlas.index == player_animate_indices.run.last {
-                                player_animate_indices.run.first
-                            } else {
-                                player_atlas.index + 1
-                            };
-                    } else {
-                        player_atlas.index = player_animate_indices.run.first;
+        for (player_animate_indices, mut animate_timer, mut player_atlas, mut sprite) in &mut query
+        {
+            animate_timer.tick(time.delta());
+            sprite.custom_size = Some(Vec2::new(128., 128.));
+            if animate_timer.just_finished() {
+                match e {
+                    PlayerAnimateEvent::Run(vel) => {
+                        if player_animate_indices.run.first <= player_atlas.index
+                            && player_atlas.index <= player_animate_indices.run.last
+                        {
+                            player_atlas.index =
+                                if player_atlas.index == player_animate_indices.run.last {
+                                    player_animate_indices.run.first
+                                } else {
+                                    player_atlas.index + 1
+                                };
+                        } else {
+                            player_atlas.index = player_animate_indices.run.first;
+                        }
+                        println!("Run");
                     }
-                    println!("Run");
-                }
-                PlayerAnimateEvent::Walk(vel) => {
-                    if player_animate_indices.walk.first <= player_atlas.index
-                        && player_atlas.index <= player_animate_indices.walk.last
-                    {
-                        player_atlas.index =
-                            if player_atlas.index == player_animate_indices.walk.last {
-                                player_animate_indices.walk.first
-                            } else {
-                                player_atlas.index + 1
-                            };
-                    } else {
-                        player_atlas.index = player_animate_indices.walk.first;
+                    PlayerAnimateEvent::Walk(vel) => {
+                        if player_animate_indices.walk.first <= player_atlas.index
+                            && player_atlas.index <= player_animate_indices.walk.last
+                        {
+                            player_atlas.index =
+                                if player_atlas.index == player_animate_indices.walk.last {
+                                    player_animate_indices.walk.first
+                                } else {
+                                    player_atlas.index + 1
+                                };
+                        } else {
+                            player_atlas.index = player_animate_indices.walk.first;
+                        }
+                        if vel.x < 0. {
+                            sprite.flip_x = true;
+                        } else {
+                            sprite.flip_x = false;
+                        }
+                        println!("Walk {}", player_atlas.index);
                     }
-                    if vel.x < 0. {
-                        sprie.flip_x = true;
-                    } else {
-                        sprie.flip_x = false;
+                    PlayerAnimateEvent::Jump(vel) => {
+                        println!("Jump");
                     }
-                    println!("Walk {}", player_atlas.index);
-                }
-                PlayerAnimateEvent::Jump(vel) => {
-                    println!("Jump");
-                }
-                PlayerAnimateEvent::Die(vel) => {
-                    println!("Die");
-                }
-                PlayerAnimateEvent::Idle(vel) => {
-                    player_atlas.index = player_animate_indices.idle.first;
-                    println!("Idle");
+                    PlayerAnimateEvent::Die(vel) => {
+                        println!("Die");
+                    }
+                    PlayerAnimateEvent::Idle(vel) => {
+                        player_atlas.index = player_animate_indices.idle.first;
+                    }
                 }
             }
         }

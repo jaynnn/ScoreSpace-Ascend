@@ -38,7 +38,7 @@ fn main() {
         set_clear_color: SetClearColor::FromLevelBackground,
         ..Default::default()
     })
-    .insert_resource(LevelSelection::Uid(0))
+    .insert_resource(LevelSelection::Uid(88))
     .add_plugins((
         // input::input_plugin,
         player::player_plugin,
@@ -90,8 +90,8 @@ pub fn main_setup(
     rapier_config.gravity = global_data.gravity;
 
 
-    // cmds.spawn(LdtkWorldBundle {
-    //     ldtk_handle: asset_server.load("ldtk/Typical_2D_platformer_example.ldtk"),
-    //     ..Default::default()
-    // });
+    cmds.spawn(LdtkWorldBundle {
+        ldtk_handle: asset_server.load("ldtk/level.ldtk"),
+        ..Default::default()
+    });
 }

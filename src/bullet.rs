@@ -4,12 +4,8 @@ use bevy_rapier2d::prelude::*;
 use crate::roulette::{self, Roulette, RouletteItem};
 
 pub fn bullet_plugin(app: &mut App) {
-    app
-    .add_event::<BulletEvent>()
-    .add_systems(Update, (
-        run,
-        bullet_linstener,
-    ));
+    app.add_event::<BulletEvent>()
+        .add_systems(Update, (run, bullet_linstener));
 }
 
 #[derive(Component)]
@@ -51,15 +47,16 @@ fn bullet_linstener(
     mut events: EventReader<BulletEvent>,
     roulette: Query<(&Roulette)>,
     roulette_item: Query<(&Transform, &Handle<Image>), With<RouletteItem>>,
+    query: Query<Entity, With<AtkNormal>>,
+    asset_server: Res<AssetServer>,
 ) {
     for event in events.read() {
-        let sprite_size = Vec2::new(70., 70.);
+        let sprite_size = Vec2::new(16., 16.);
         let transform = event.transform;
         let vel = event.vel;
         let roulette = roulette.single();
-        if let Some(cur_item) = roulette.get_cur_item() {
-        }
-        spawn_atk_normal(&mut cmds, &transform, vel, sprite_size);
+        if let Some(cur_item) = roulette.get_cur_item() {}
+        spawn_atk_normal(&mut cmds, &transform, vel, sprite_size, &query, &asset_server);
     }
 }
 
@@ -68,15 +65,20 @@ pub fn spawn_atk_normal(
     transform: &Transform,
     vel: Vec2,
     sprite_size: Vec2,
+    query: &Query<Entity, With<AtkNormal>>,
+    asset_server: &Res<AssetServer>,
 ) {
+    for ice in query {
+        cmds.entity(ice).despawn();
+    }
     cmds.spawn((
         Name::new("AtkNormal"),
         SpriteBundle {
-            sprite: Sprite {
-                color: Color::RED,
+            sprite: Sprite { 
                 custom_size: Some(sprite_size),
                 ..default()
             },
+            texture: asset_server.load("images/ice.png"),
             transform: transform.clone(),
             ..default()
         },
@@ -84,7 +86,7 @@ pub fn spawn_atk_normal(
         AtkNormal,
         RigidBody::Dynamic,
         Velocity::linear(vel),
-        Collider::cuboid(sprite_size.x/2., sprite_size.y/2.),
+        Collider::cuboid(sprite_size.x / 2., sprite_size.y / 2.),
         ActiveEvents::COLLISION_EVENTS,
     ));
 }
