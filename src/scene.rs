@@ -80,7 +80,7 @@ impl From<&EntityInstance> for ColliderBundle {
         match entity_instance.identifier.as_ref() {
             "Player" => ColliderBundle {
                 collider: Collider::cuboid(6., 14.),
-                rigid_body: RigidBody::Dynamic,
+                rigid_body: RigidBody::KinematicVelocityBased,
                 friction: Friction {
                     coefficient: 0.0,
                     combine_rule: CoefficientCombineRule::Min,
@@ -115,7 +115,6 @@ pub struct Climbable;
 pub struct SensorBundle {
     pub collider: Collider,
     pub sensor: Sensor,
-    pub active_events: ActiveEvents,
     pub rotation_constraints: LockedAxes,
 }
 
@@ -129,7 +128,6 @@ impl From<IntGridCell> for SensorBundle {
                 collider: Collider::cuboid(8., 8.),
                 sensor: Sensor,
                 rotation_constraints,
-                active_events: ActiveEvents::COLLISION_EVENTS,
             }
         } else {
             SensorBundle::default()

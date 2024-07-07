@@ -22,10 +22,8 @@ pub fn player_plugin(app: &mut App) {
     })
     .register_type::<PlayerData>()
     .add_systems(Update, on_spawn_player)
-    .add_systems(
-        Update,
-        (player_move, detect_climb_range, ignore_gravity_if_climbing),
-    );
+    .add_systems(Update, player_move)
+    .add_systems(Update, (detect_climb_range, ignore_gravity_if_climbing));
 }
 
 #[derive(Component, Clone, Default)]
@@ -40,7 +38,13 @@ pub fn on_spawn_player(mut commands: Commands, mut players: Query<(Entity), Adde
                 ground_detection_entity: player_entity,
                 intersecting_ground_entities: HashSet::new(),
                 on_ground: false,
-            });
+            })
+            .insert(KinematicCharacterController {
+                // The character offset is set to 0.01.
+                offset: CharacterLength::Absolute(0.01),
+                ..default()
+            })
+            .insert(ActiveCollisionTypes::all());
     }
 }
 #[derive(Clone, Default, Bundle, LdtkEntity)]
@@ -86,14 +90,32 @@ pub struct PlayerData {
 
 fn player_move(
     input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<(&mut Velocity, &mut Climber, &GroundSensor), With<Player>>,
+    time: Res<Time>,
+    mut query: Query<
+        (
+            &mut Velocity,
+            &mut Climber,
+            &GroundSensor,
+            &mut KinematicCharacterController,
+            Option<&KinematicCharacterControllerOutput>,
+        ),
+        With<Player>,
+    >,
+    climbables: Query<Entity, With<Climbable>>,
+    mut vertical_movement: Local<f32>,
+    mut grounded_timer: Local<f32>,
 ) {
-    for (mut velocity, mut climber, ground_detection) in &mut query {
+    let delta_time = time.delta_seconds();
+    for (mut velocity, mut climber, ground_detection, mut controller, output) in &mut query {
         let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
         let left = if input.pressed(KeyCode::KeyA) { 1. } else { 0. };
-
-        velocity.linvel.x = (right - left) * 200.;
-
+        let mut movement = Vec2::ZERO;
+        movement.x = (right - left) * 2.;
+        if output.map(|o| o.grounded).unwrap_or(false) {
+            *grounded_timer = 0.5;
+            *vertical_movement = 0.0;
+        }
+        
         if climber.intersecting_climbables.is_empty() {
             climber.climbing = false;
         } else if input.just_pressed(KeyCode::KeyW) || input.just_pressed(KeyCode::KeyS) {
@@ -103,14 +125,30 @@ fn player_move(
         if climber.climbing {
             let up = if input.pressed(KeyCode::KeyW) { 1. } else { 0. };
             let down = if input.pressed(KeyCode::KeyS) { 1. } else { 0. };
-
-            velocity.linvel.y = (up - down) * 200.;
+            movement.y = 2.0;
+            *vertical_movement = (up - down) * 2.;
         }
 
-        if input.just_pressed(KeyCode::Space) && (ground_detection.on_ground || climber.climbing) {
-            velocity.linvel.y = 500.;
+        if input.just_pressed(KeyCode::Space) {
+            movement.y = 3.;
             climber.climbing = false;
         }
+
+        let jump_speed = movement.y;
+        // If we are grounded we can jump
+        if *grounded_timer > 0.0 {
+            *grounded_timer -= delta_time;
+            // If we jump we clear the grounded tolerance
+            if jump_speed > 0.0 {
+                *vertical_movement = jump_speed;
+                *grounded_timer = 0.0;
+            }
+        }
+        movement.y = *vertical_movement;
+        if (!climber.climbing) {
+            *vertical_movement += -9.81 * delta_time;
+        }
+        controller.translation = Some(movement)
     }
 }
 
