@@ -45,12 +45,14 @@ pub fn setup(
         return;
     }
     for (player_e, transform) in query_player.iter_mut() {
-        let texture: Handle<Image>  = asset_server.load("atlas/run_walk_2.png");
-        let layout = TextureAtlasLayout::from_grid(Vec2::new(245.0, 305.0), 4, 2, None, None);
+        let texture: Handle<Image>  = asset_server.load("atlas/player_sheet3.png");
+        let layout = TextureAtlasLayout::from_grid(Vec2::new(350.0, 350.0), 6, 4, None, None);
         let texture_atlas_layout: Handle<TextureAtlasLayout> = texture_atlas_layouts.add(layout);
         let animation_indices = PlayerAnimateIndices {
-            run: AnimationIndices { first: 0, last: 3 },
-            walk: AnimationIndices { first: 4, last: 7 },
+            die: AnimationIndices { first: 0, last: 5 },
+            jump: AnimationIndices { first: 6, last: 10 },
+            walk: AnimationIndices { first: 12, last: 15 },
+            run: AnimationIndices { first: 18, last: 21 },
             ..default()
         };
         cmds.entity(player_e)

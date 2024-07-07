@@ -97,7 +97,7 @@ fn spawn_player(
             sprite: Sprite {
                 ..default()
             },
-            transform: Transform::from_xyz(0., 0., 0.),
+            transform: Transform::from_xyz(0., 0., 5.),
             ..default()
         },
         Player,
@@ -189,8 +189,8 @@ fn player_move(
                 for (camera, camera_transform) in camera_query.iter() {
                     if let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
                         let direction = get_mouse_direction(transform, point);
-                        let vel = direction * 1000.;
-                        bullet_event.send(BulletEvent { transform: *transform, vel});
+                        let vel = direction * 1500.;
+                        bullet_event.send(BulletEvent { transform: Transform::from_xyz(transform.translation.x + direction.x * 100.0, transform.translation.y + direction.y * 100.0, transform.translation.z), vel});
                     }
                 }
             }

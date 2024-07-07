@@ -203,7 +203,7 @@ pub fn on_add_item(
             cmds.entity(player).with_children(|parent| {
                 let roulette_len = roulette.len();
                 let cur_index = roulette.get_cur_index();
-                let transform_x = (roulette_len - cur_index) as f32 * 50. * global_data.scale;
+                let transform_x = (roulette_len - cur_index) as f32 * 200. * global_data.scale;
                 // let item_info = item_infos.get(&event.id).unwrap();
                 let id = parent.spawn((
                     RouletteItem {
@@ -214,7 +214,8 @@ pub fn on_add_item(
                         },
                         texture: asset_server.load("images/player.png"),
                         transform: Transform {
-                            translation: Vec3::new(transform_x, 50., 0.),
+                            translation: Vec3::new(transform_x, 200., 0.),
+                            scale: Vec3::splat(5.0),
                             ..default()
                         },
                         ..default()
