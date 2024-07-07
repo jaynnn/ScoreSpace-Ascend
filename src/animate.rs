@@ -55,7 +55,7 @@ pub fn setup(
         };
         cmds.entity(player_e)
             .insert(animation_indices.clone())
-            .insert(AnimationTimer(Timer::from_seconds(0.05, TimerMode::Repeating)))
+            .insert(AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)))
             .insert(TextureAtlas {
                 layout: texture_atlas_layout.clone(),
                 index: animation_indices.walk.first,

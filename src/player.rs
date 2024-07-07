@@ -144,7 +144,7 @@ fn player_move(
         let mut movement = Vec2::ZERO;
         movement.x = (right - left) * 2.;
         if right - left != 0.0 {
-            animate_event.send(PlayerAnimateEvent::Walk(velocity.linvel));
+            animate_event.send(PlayerAnimateEvent::Walk(Vec2::new(right-left, 0.0)));
         }
         if output.map(|o| o.grounded).unwrap_or(false) {
             *grounded_timer = 0.5;
