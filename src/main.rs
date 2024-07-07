@@ -24,7 +24,7 @@ fn main() {
     app.insert_resource(ClearColor(Color::WHITE))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "ASCEND".to_string(),
+                title: "colorize ".to_string(),
                 prevent_default_event_handling: false,
                 ..default()
             }),
