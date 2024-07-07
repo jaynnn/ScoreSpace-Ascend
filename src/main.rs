@@ -15,6 +15,7 @@ mod roulette;
 mod menu;
 mod animate;
 mod bullet;
+mod comm;
 
 fn main() {
     let mut app = App::new();
@@ -27,7 +28,7 @@ fn main() {
             ..default()
         }),
         ..default()
-    }).set(ImagePlugin::default_nearest()))
+    }))
     .add_plugins(LdtkPlugin)
     .insert_resource(LdtkSettings {
         level_spawn_behavior: LevelSpawnBehavior::UseWorldTranslation {

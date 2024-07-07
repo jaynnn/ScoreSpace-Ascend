@@ -192,29 +192,23 @@ pub fn ground_detection(
     for collision_event in collisions.read() {
         match collision_event {
             CollisionEvent::Started(e1, e2, _) => {
-                println!("pppppp {} {}", collidables.contains(*e1), collidables.contains(*e2));
                 if collidables.contains(*e1) {
                     if let Ok(mut sensor) = ground_sensors.get_mut(*e2) {
-                        println!("1111111");
                         sensor.intersecting_ground_entities.insert(*e1);
                     }
                 } else if collidables.contains(*e2) {
                     if let Ok(mut sensor) = ground_sensors.get_mut(*e1) {
-                        println!("2222222");
                         sensor.intersecting_ground_entities.insert(*e2);
                     }
                 }
             }
             CollisionEvent::Stopped(e1, e2, _) => {
-                println!("oooooo {} {}", collidables.contains(*e1), collidables.contains(*e2));
                 if collidables.contains(*e1) {
                     if let Ok(mut sensor) = ground_sensors.get_mut(*e2) {
-                        println!("3333333");
                         sensor.intersecting_ground_entities.remove(e1);
                     }
                 } else if collidables.contains(*e2) {
                     if let Ok(mut sensor) = ground_sensors.get_mut(*e1) {
-                        println!("4444444");
                         sensor.intersecting_ground_entities.remove(e2);
                     }
                 }

@@ -1,42 +1,23 @@
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::*;
 use bevy_rapier2d::prelude::*;
-use bevy_inspector_egui::prelude::*;
-use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_ecs_ldtk::prelude::*;
 use bevy::utils::HashSet;
 
-use crate::input;
-use crate::global;
-use crate::wall;
 use crate::roulette::RouletteRotateEvent;
 use crate::bullet::spawn_atk_normal;
-
-use bevy::prelude::*;
-use bevy::transform::commands;
-use bevy::utils::HashSet;
-use bevy_ecs_ldtk::prelude::*;
-use bevy_inspector_egui::prelude::*;
-use bevy_rapier2d::prelude::*;
-use leafwing_input_manager::prelude::*;
 
 use crate::scene::Climbable;
 use crate::scene::ColliderBundle;
 use crate::scene::GroundSensor;
 use crate::scene::Items;
+use crate::animate::PlayerAnimateEvent;
 
 pub fn player_plugin(app: &mut App) {
     app
     .add_systems(Startup, (
         spawn_player,
     ))
-    .add_systems(Update, (
-        player_move,
-        // player_shoot,
-        detect_climb_range,
-        ignore_gravity_if_climbing,
-    ));
     .add_systems(Update, on_spawn_player)
     .add_systems(
         Update,
@@ -98,10 +79,11 @@ fn player_move(
     input: Res<ButtonInput<KeyCode>>,
     input_mouse_button: Res<ButtonInput<MouseButton>>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut query: Query<(&Transform, &mut Velocity, &mut Climber, &GroundDetection), With<Player>>,
+    mut query: Query<(&Transform, &mut Velocity, &mut Climber, &GroundSensor), With<Player>>,
     mut roulette_event: EventWriter<RouletteRotateEvent>,
-    camera_query: Query<(&Camera, &GlobalTransform)>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<IsDefaultUiCamera>>,
     windows: Query<&Window>,
+    mut animate_event: EventWriter<PlayerAnimateEvent>
 ) {
     for (transform, mut velocity, mut climber, ground_detection) in &mut query {
         let right = if input.pressed(KeyCode::KeyD) { 1. } else { 0. };
@@ -126,14 +108,18 @@ fn player_move(
             velocity.linvel.y = 500.;
             climber.climbing = false;
         }
+        if velocity.linvel.x != 0. {
+            animate_event.send(PlayerAnimateEvent::Walk(velocity.linvel));
+        }
 
         if input_mouse_button.just_pressed(MouseButton::Left) {
             if let Some(cursor_position) = windows.single().cursor_position() {
-                let (camera, camera_transform) = camera_query.single();
-                if let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-                    let direction = get_mouse_direction(transform, point);
-                    let vel = direction * 1000.;
-                    spawn_atk_normal(&mut cmds, transform, vel, Vec2::new(10., 10.));
+                for (camera, camera_transform) in camera_query.iter() {
+                    if let Some(point) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+                        let direction = get_mouse_direction(transform, point);
+                        let vel = direction * 1000.;
+                        spawn_atk_normal(&mut cmds, transform, vel, Vec2::new(10., 10.));
+                    }
                 }
             }
         }

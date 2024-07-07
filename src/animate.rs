@@ -1,16 +1,16 @@
+use bevy::transform;
 use bevy::{prelude::*, render::render_resource::Texture};
 
 use crate::player::Player;
+use crate::comm::SetUpFlag;
 
 pub fn animate_plugin(app: &mut App) {
     app
         .add_event::<PlayerAnimateEvent>()
-        // .add_systems(Startup, (
-        //     setup.after(crate::main_setup),
-        // ))
-        // .add_systems(Update, (
-        //     player_animate,
-        // ))
+        .add_systems(Update, (
+            setup,
+            player_animate,
+        ))
         ;
 }
 
@@ -38,45 +38,54 @@ pub fn setup(
     mut cmds: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    mut query_player: Query<(Entity, &mut TextureAtlas, &mut Handle<Image>), With<Player>>
+    mut query_player: Query<(Entity, &mut Transform), With<Player>>,
+    mut local_data: Local<SetUpFlag>,
 ) {
-    let texture: Handle<Image>  = asset_server.load("atlas/run_walk.png");
-    let layout = TextureAtlasLayout::from_grid(Vec2::new(24.0, 24.0), 7, 1, None, None);
-    let texture_atlas_layout: Handle<TextureAtlasLayout> = texture_atlas_layouts.add(layout);
-    let animation_indices = PlayerAnimateIndices {
-        run: AnimationIndices { first: 1, last: 4 },
-        walk: AnimationIndices { first: 5, last: 8 },
-        ..default()
-    };
-    let (player_e, mut player_atlas, mut player_texture) = query_player.single_mut();
-    cmds.entity(player_e)
-        .insert(animation_indices.clone())
-        .insert(AnimationTimer(Timer::from_seconds(0.1, TimerMode::Once)));
-    *player_texture = texture;
-    player_atlas.layout = texture_atlas_layout;
-    player_atlas.index = animation_indices.walk.first;
+    if local_data.0 {
+        return;
+    }
+    for (player_e, transform) in query_player.iter_mut() {
+        let texture: Handle<Image>  = asset_server.load("atlas/run_walk.png");
+        let layout = TextureAtlasLayout::from_grid(Vec2::new(25.0, 30.0), 4, 2, None, None);
+        let texture_atlas_layout: Handle<TextureAtlasLayout> = texture_atlas_layouts.add(layout);
+        let animation_indices = PlayerAnimateIndices {
+            run: AnimationIndices { first: 0, last: 3 },
+            walk: AnimationIndices { first: 4, last: 7 },
+            ..default()
+        };
+        cmds.entity(player_e)
+            .insert(animation_indices.clone())
+            .insert(AnimationTimer(Timer::from_seconds(0.05, TimerMode::Repeating)))
+            .insert(TextureAtlas {
+                layout: texture_atlas_layout.clone(),
+                index: animation_indices.walk.first,
+            })
+            .insert(texture)
+            .insert(transform.with_scale(Vec3::splat(0.8)));
+        local_data.0 = true;
+    }
 }
 
 #[derive(Event)]
 pub enum PlayerAnimateEvent {
-    Run,
-    Walk,
-    Jump,
-    Die,
-    Idle,
+    Run(Vec2),
+    Walk(Vec2),
+    Jump(Vec2),
+    Die(Vec2),
+    Idle(Vec2),
 }
 
 pub fn player_animate(
     mut evt: EventReader<PlayerAnimateEvent>,
-    mut query: Query<(&PlayerAnimateIndices, &mut AnimationTimer, &mut TextureAtlas), With<Player>>,
+    mut query: Query<(&PlayerAnimateIndices, &mut AnimationTimer, &mut TextureAtlas, &mut Sprite), With<Player>>,
     time: Res<Time>,
 ) {
     for e in evt.read() {
-        let (player_animate_indices, mut animate_timer, mut player_atlas) = query.single_mut();
+        let (player_animate_indices, mut animate_timer, mut player_atlas, mut sprie) = query.single_mut();
         animate_timer.tick(time.delta());
         if animate_timer.just_finished() {
             match e {
-                PlayerAnimateEvent::Run => {
+                PlayerAnimateEvent::Run(vel) => {
                     if player_animate_indices.run.first <= player_atlas.index && player_atlas.index <= player_animate_indices.run.last {
                         player_atlas.index = if player_atlas.index == player_animate_indices.run.last {
                             player_animate_indices.run.first
@@ -85,11 +94,11 @@ pub fn player_animate(
                         };
                         
                     } else {
-                        player_atlas.index += 1;
+                        player_atlas.index = player_animate_indices.run.first;
                     }
                     println!("Run");
                 }
-                PlayerAnimateEvent::Walk => {
+                PlayerAnimateEvent::Walk(vel) => {
                     if player_animate_indices.walk.first <= player_atlas.index && player_atlas.index <= player_animate_indices.walk.last {
                         player_atlas.index = if player_atlas.index == player_animate_indices.walk.last {
                             player_animate_indices.walk.first
@@ -97,17 +106,22 @@ pub fn player_animate(
                             player_atlas.index + 1
                         };
                     } else {
-                        player_atlas.index += 1;
+                        player_atlas.index = player_animate_indices.walk.first;
                     }
-                    println!("Walk");
+                    if vel.x < 0. {
+                        sprie.flip_x = true;
+                    } else {
+                        sprie.flip_x = false;
+                    }
+                    println!("Walk {}", player_atlas.index);
                 }
-                PlayerAnimateEvent::Jump => {
+                PlayerAnimateEvent::Jump(vel) => {
                     println!("Jump");
                 }
-                PlayerAnimateEvent::Die => {
+                PlayerAnimateEvent::Die(vel) => {
                     println!("Die");
                 }
-                PlayerAnimateEvent::Idle => {
+                PlayerAnimateEvent::Idle(vel) => {
                     println!("Idle");
                 }
             }
