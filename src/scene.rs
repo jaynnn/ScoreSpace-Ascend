@@ -454,7 +454,7 @@ fn check_door_open(
     for collision_event in collisions.read() {
         match collision_event {
             CollisionEvent::Started(e1, e2, _) => {
-                let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+                let font = asset_server.load("fonts/han_rounded.ttf");
                 let text_style = TextStyle {
                     color: Color::BLACK,
                     font: font.clone(),
